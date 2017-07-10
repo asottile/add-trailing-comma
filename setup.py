@@ -4,7 +4,7 @@ setup(
     name='add_trailing_comma',
     description='Automatically add trailing commas to calls and literals',
     url='https://github.com/asottile/add_trailing_comma',
-    version='0.0.0',
+    version='0.1.0',
     author='Anthony Sottile',
     author_email='asottile@umich.edu',
     classifiers=[
