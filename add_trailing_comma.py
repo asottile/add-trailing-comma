@@ -15,6 +15,8 @@ from tokenize_rt import UNIMPORTANT_WS
 
 Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
 Node = collections.namedtuple('Node', ('node', 'star_args', 'arg_offsets'))
+Literal = collections.namedtuple('Literal', ('node', 'braces', 'backtrack'))
+Literal.__new__.__defaults__ = (False,)
 
 NON_CODING_TOKENS = frozenset(('COMMENT', 'NL', UNIMPORTANT_WS))
 
@@ -48,10 +50,44 @@ def _is_star_star_kwarg(node):
     return isinstance(node, ast.keyword) and node.arg is None
 
 
-class FindCalls(ast.NodeVisitor):
+class FindNodes(ast.NodeVisitor):
     def __init__(self):
         self.calls = {}
+        self.literals = {}
         self.has_new_syntax = False
+
+    def _visit_literal(self, node, key='elts', is_multiline=False, **kwargs):
+        orig = node.lineno
+
+        for elt in getattr(node, key):
+            if elt.lineno > orig:
+                is_multiline = True
+            if _is_star_arg(elt):  # pragma: no cover (PY35+)
+                self.has_new_syntax = True
+
+        if is_multiline:
+            key = Offset(node.lineno, node.col_offset)
+            self.literals[key] = Literal(node, **kwargs)
+            self.generic_visit(node)
+
+    def visit_Set(self, node):
+        self._visit_literal(node, braces=('{', '}'))
+
+    def visit_Dict(self, node):
+        # unpackings are represented as a `None` key
+        if None in node.keys:  # pragma: no cover (PY35+)
+            self.has_new_syntax = True
+        self._visit_literal(node, key='values', braces=('{', '}'))
+
+    def visit_List(self, node):
+        self._visit_literal(node, braces=('[', ']'))
+
+    def visit_Tuple(self, node):
+        # tuples lie about things, so we pretend they are all multiline
+        # and tell the later machinery to backtrack
+        self._visit_literal(
+            node, is_multiline=True, braces=('(', ')'), backtrack=True,
+        )
 
     def visit_Call(self, node):
         orig = node.lineno
@@ -100,37 +136,19 @@ class FindCalls(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _fix_call(call, i, tokens):
-    # When we get a `call` object, the ast refers to it as this:
-    #
-    #     func_name(arg, arg, arg)
-    #     ^ where ast points
-    #
-    # We care about the closing paren, in order to find it, we first walk
-    # until we find an argument.  When we find an argument, we know the outer
-    # paren we find is the function call paren
-    #
-    #     func_name(arg, arg, arg)
-    #              ^ outer paren
-    #
-    # Once that is identified, walk until the paren stack is empty -- this will
-    # put us at the last paren
-    #
-    #     func_name(arg, arg, arg)
-    #                            ^ paren stack is empty
-    first_paren = None
-    paren_stack = []
+def _fix_inner(brace_start, brace_end, first_paren, tokens):
+    i = first_paren
+    brace_stack = [first_paren]
+    i += 1
+
     for i in range(i, len(tokens)):
         token = tokens[i]
-        if token.src == '(':
-            paren_stack.append(i)
-        elif token.src == ')':
-            paren_stack.pop()
+        if token.src == brace_start:
+            brace_stack.append(i)
+        elif token.src == brace_end:
+            brace_stack.pop()
 
-        if (token.line, token.utf8_byte_offset) in call.arg_offsets:
-            first_paren = paren_stack[0]
-
-        if first_paren is not None and not paren_stack:
+        if not brace_stack:
             break
     else:
         raise AssertionError('Past end?')
@@ -145,17 +163,63 @@ def _fix_call(call, i, tokens):
         i -= 1
 
     # If we're not a hugging paren, we can insert a comma
-    if tokens[i].src != ',' and tokens[i + 1].src != ')':
+    if tokens[i].src != ',' and tokens[i + 1].src != brace_end:
         tokens.insert(i + 1, Token('OP', ','))
 
 
-def _fix_calls(contents_text, py35_plus):
+def _fix_call(call, i, tokens):
+    # When we get a `call` object, the ast refers to it as this:
+    #
+    #     func_name(arg, arg, arg)
+    #     ^ where ast points
+    #
+    # We care about the closing paren, in order to find it, we first walk
+    # until we find an argument.  When we find an argument, we know the outer
+    # paren we find is the function call paren
+    #
+    #     func_name(arg, arg, arg)
+    #              ^ outer paren
+    first_paren = None
+    paren_stack = []
+    for i in range(i, len(tokens)):
+        token = tokens[i]
+        if token.src == '(':
+            paren_stack.append(i)
+        elif token.src == ')':
+            paren_stack.pop()
+
+        if (token.line, token.utf8_byte_offset) in call.arg_offsets:
+            first_paren = paren_stack[0]
+            break
+    else:
+        raise AssertionError('Past end?')
+
+    _fix_inner('(', ')', first_paren, tokens)
+
+
+def _fix_literal(literal, i, tokens):
+    brace_start, brace_end = literal.braces
+
+    # tuples are evil, we need to backtrack to find the opening paren
+    if literal.backtrack:
+        i -= 1
+        while tokens[i].name in NON_CODING_TOKENS:
+            i -= 1
+        # Sometimes tuples don't even have a paren!
+        # x = 1, 2, 3
+        if tokens[i].src != brace_start:
+            return
+
+    _fix_inner(brace_start, brace_end, i, tokens)
+
+
+def _fix_commas(contents_text, py35_plus):
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    visitor = FindCalls()
+    visitor = FindNodes()
     visitor.visit(ast_obj)
 
     tokens = src_to_tokens(contents_text)
@@ -166,6 +230,8 @@ def _fix_calls(contents_text, py35_plus):
             # Only fix stararg calls if asked to
             if not call.star_args or py35_plus or visitor.has_new_syntax:
                 _fix_call(call, i, tokens)
+        elif key in visitor.literals:
+            _fix_literal(visitor.literals[key], i, tokens)
 
     return tokens_to_src(tokens)
 
@@ -180,7 +246,7 @@ def fix_file(filename, args):
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
-    contents_text = _fix_calls(contents_text, args.py35_plus)
+    contents_text = _fix_commas(contents_text, args.py35_plus)
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))

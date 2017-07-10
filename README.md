@@ -102,9 +102,6 @@ If `--py35-plus` is passed (or python3.5+ syntax is automatically detected),
 
 Note that this would cause a **`SyntaxError`** in earlier python versions.
 
-
-## Planned features
-
 ### trailing commas for tuple / list / dict / set literals
 
 ```diff
@@ -113,6 +110,9 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
 +    1, 2, 3,
  ]
 ```
+
+
+## Planned features
 
 ### trailing commas for function definitions
 
