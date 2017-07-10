@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import ast
 import sys
 
 import pytest
@@ -38,16 +39,27 @@ from add_trailing_comma import main
         'x((\n'
         '    1,\n'
         '))',
-        # Can't handle multi line strings
-        'x(\n'
-        '    """\n'
-        '    """\n'
-        ')',
     ),
 )
 def test_fix_calls_noops(src):
     ret = _fix_calls(src, py35_plus=False)
     assert ret == src
+
+
+def _has_16806_bug():
+    # See https://bugs.python.org/issue16806
+    return ast.parse('"""\n"""').body[0].value.col_offset == -1
+
+
+@pytest.mark.xfail(not _has_16806_bug(), reason='multiline string parse bug')
+def test_ignores_invalid_ast_node():
+    src = (
+        'x(\n'
+        '    """\n'
+        '    """\n'
+        ')'
+    )
+    assert _fix_calls(src, py35_plus=False) == src
 
 
 def test_py35_plus_rewrite():

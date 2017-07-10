@@ -76,7 +76,7 @@ class FindCalls(ast.NodeVisitor):
 
             offset = _to_offset(argnode)
             # multiline strings have invalid position, ignore them
-            if offset.utf8_byte_offset != -1:
+            if offset.utf8_byte_offset != -1:  # pragma: no branch (cpy bug)
                 if offset.line > orig:
                     is_multiline = True
                 arg_offsets.add(offset)
