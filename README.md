@@ -37,7 +37,7 @@ function_call(
 ```
 
 - the initial paren is at the end of the line
-- each argument is indented one leve further than the function name
+- each argument is indented one level further than the function name
 - the last parameter (unless the call contains an unpacking
   (`*args` / `**kwargs`)) has a trailing comma
 
