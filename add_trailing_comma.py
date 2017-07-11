@@ -179,13 +179,16 @@ def _fix_call(call, i, tokens):
     #
     #     func_name(arg, arg, arg)
     #              ^ outer paren
+    brace_start, brace_end = '(', ')'
     first_paren = None
     paren_stack = []
     for i in range(i, len(tokens)):
         token = tokens[i]
-        if token.src == '(':
+        if token.src == brace_start:
             paren_stack.append(i)
-        elif token.src == ')':
+        # the ast lies to us about the beginning of parenthesized functions.
+        # See #3. (why we make sure there's something to pop here)
+        elif token.src == brace_end and paren_stack:
             paren_stack.pop()
 
         if (token.line, token.utf8_byte_offset) in call.arg_offsets:
@@ -194,7 +197,7 @@ def _fix_call(call, i, tokens):
     else:
         raise AssertionError('Past end?')
 
-    _fix_inner('(', ')', first_paren, tokens)
+    _fix_inner(brace_start, brace_end, first_paren, tokens)
 
 
 def _fix_literal(literal, i, tokens):
