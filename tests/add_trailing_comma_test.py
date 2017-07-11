@@ -42,6 +42,10 @@ xfailif_lt_py35 = pytest.mark.xfail(sys.version_info < (3, 5), reason='py35+')
         'x((\n'
         '    1,\n'
         '))',
+        # regression test for #3
+        '(\n'
+        '    a\n'
+        ').f(b)',
     ),
 )
 def test_fix_calls_noops(src):
