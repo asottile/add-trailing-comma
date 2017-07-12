@@ -253,6 +253,50 @@ def test_noop_tuple_literal_without_braces():
     assert _fix_commas(src, py35_plus=False) == src
 
 
+@pytest.mark.parametrize(
+    'src',
+    (
+        'def f(arg1, arg2): pass',
+        'def f(\n'
+        '        arg1,\n'
+        '        arg2,\n'
+        '): pass',
+        # *args forbid trailing commas
+        'def f(\n'
+        '        *args\n'
+        '): pass'
+        # **kwargs forbid trailing commas
+        'def f(\n'
+        '        **kwargs\n'
+        '): pass',
+        # keyword-only args forbid trailing commas (or are py2 syntax error)
+        'def f(\n'
+        '        *, arg=1\n'
+        '): pass',
+    ),
+)
+def test_noop_function_defs(src):
+    assert _fix_commas(src, py35_plus=False) == src
+
+
+@pytest.mark.parametrize(
+    ('src', 'expected'),
+    (
+        (
+            'def f(\n'
+            '        x\n'
+            '): pass',
+
+            'def f(\n'
+            '        x,\n'
+            '): pass',
+        ),
+    ),
+)
+def test_fixes_defs(src, expected):
+    assert _fix_commas(src, py35_plus=False) == expected
+
+
 def test_main_trivial():
     assert main(()) == 0
 

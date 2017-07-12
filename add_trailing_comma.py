@@ -15,6 +15,7 @@ from tokenize_rt import UNIMPORTANT_WS
 
 Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
 Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
+Func = collections.namedtuple('Func', ('node', 'arg_offsets'))
 Literal = collections.namedtuple('Literal', ('node', 'braces', 'backtrack'))
 Literal.__new__.__defaults__ = (False,)
 
@@ -53,6 +54,7 @@ def _is_star_star_kwarg(node):
 class FindNodes(ast.NodeVisitor):
     def __init__(self):
         self.calls = {}
+        self.funcs = {}
         self.literals = {}
         self.has_new_syntax = False
 
@@ -132,6 +134,27 @@ class FindNodes(ast.NodeVisitor):
                 sum(_is_star_star_kwarg(n) for n in node.keywords) > 1
         ):  # pragma: no cover (PY35+)
             self.has_new_syntax = True
+
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node):
+        has_starargs = (
+            node.args.vararg or node.args.kwarg or
+            # python 3 only
+            getattr(node.args, 'kwonlyargs', None)
+        )
+        orig = node.lineno
+        is_multiline = False
+        offsets = set()
+        for argnode in node.args.args:
+            offset = _to_offset(argnode)
+            if offset.line > orig:
+                is_multiline = True
+            offsets.add(offset)
+
+        if is_multiline and not has_starargs:
+            key = Offset(node.lineno, node.col_offset)
+            self.funcs[key] = Func(node, offsets)
 
         self.generic_visit(node)
 
@@ -235,6 +258,9 @@ def _fix_commas(contents_text, py35_plus):
                 _fix_call(call, i, tokens)
         elif key in visitor.literals:
             _fix_literal(visitor.literals[key], i, tokens)
+        elif key in visitor.funcs:
+            # functions can be treated as calls
+            _fix_call(visitor.funcs[key], i, tokens)
 
     return tokens_to_src(tokens)
 
