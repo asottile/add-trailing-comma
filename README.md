@@ -111,9 +111,6 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
  ]
 ```
 
-
-## Planned features
-
 ### trailing commas for function definitions
 
 ```diff
@@ -123,6 +120,13 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
 +        arg2,
  ):
 ```
+
+Note that functions with starargs (`*args`), kwargs (`**kwargs`), or python 3
+keyword-only arguments (`..., *, ...`) cannot have a trailing comma due to it
+being a syntax error.
+
+
+## Planned features
 
 ### unhug trailing paren
 
