@@ -14,7 +14,7 @@ from tokenize_rt import UNIMPORTANT_WS
 
 
 Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
-Node = collections.namedtuple('Node', ('node', 'star_args', 'arg_offsets'))
+Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
 Literal = collections.namedtuple('Literal', ('node', 'braces', 'backtrack'))
 Literal.__new__.__defaults__ = (False,)
 
@@ -125,7 +125,7 @@ class FindNodes(ast.NodeVisitor):
 
         if is_multiline and not only_a_generator:
             key = Offset(node.lineno, node.col_offset)
-            self.calls[key] = Node(node, has_starargs, arg_offsets)
+            self.calls[key] = Call(node, has_starargs, arg_offsets)
 
         if (
                 sum(_is_star_arg(n) for n in node.args) > 1 or
