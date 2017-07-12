@@ -239,7 +239,7 @@ def _fix_literal(literal, i, tokens):
     _fix_inner(brace_start, brace_end, i, tokens)
 
 
-def _fix_commas(contents_text, py35_plus):
+def _fix_src(contents_text, py35_plus):
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -247,6 +247,7 @@ def _fix_commas(contents_text, py35_plus):
 
     visitor = FindNodes()
     visitor.visit(ast_obj)
+    py35_plus = py35_plus or visitor.has_new_syntax
 
     tokens = src_to_tokens(contents_text)
     for i, token in reversed(tuple(enumerate(tokens))):
@@ -254,7 +255,7 @@ def _fix_commas(contents_text, py35_plus):
         if key in visitor.calls:
             call = visitor.calls[key]
             # Only fix stararg calls if asked to
-            if not call.star_args or py35_plus or visitor.has_new_syntax:
+            if not call.star_args or py35_plus:
                 _fix_call(call, i, tokens)
         elif key in visitor.literals:
             _fix_literal(visitor.literals[key], i, tokens)
@@ -275,7 +276,7 @@ def fix_file(filename, args):
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
-    contents_text = _fix_commas(contents_text, args.py35_plus)
+    contents_text = _fix_src(contents_text, args.py35_plus)
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
