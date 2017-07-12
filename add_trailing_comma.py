@@ -160,11 +160,9 @@ class FindNodes(ast.NodeVisitor):
 
 
 def _fix_inner(brace_start, brace_end, first_paren, tokens):
-    i = first_paren
     brace_stack = [first_paren]
-    i += 1
 
-    for i in range(i, len(tokens)):
+    for i in range(first_paren + 1, len(tokens)):
         token = tokens[i]
         if token.src == brace_start:
             brace_stack.append(i)
