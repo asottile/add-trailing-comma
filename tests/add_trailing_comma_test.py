@@ -297,6 +297,130 @@ def test_fixes_defs(src, expected):
     assert _fix_src(src, py35_plus=False) == expected
 
 
+@pytest.mark.parametrize(
+    'src',
+    (
+        'f(x, y, z)',
+        'f(\n'
+        '    x,\n'
+        ')',
+        # Single argument, don't unhug
+        'f((\n'
+        '    1, 2, 3,\n'
+        '))',
+        'f([\n'
+        '    1, 2, 3,\n'
+        '])',
+    ),
+)
+def test_noop_unhugs(src):
+    assert _fix_src(src, py35_plus=False) == src
+
+
+@pytest.mark.parametrize(
+    ('src', 'expected'),
+    (
+        (
+            'f(\n'
+            '    a)',
+
+            'f(\n'
+            '    a,\n'
+            ')',
+        ),
+        (
+            'f(a,\n'
+            '  b,\n'
+            ')',
+
+            'f(\n'
+            '    a,\n'
+            '    b,\n'
+            ')',
+        ),
+        (
+            'f(a,\n'
+            '  b,\n'
+            '  c)',
+
+            'f(\n'
+            '    a,\n'
+            '    b,\n'
+            '    c,\n'
+            ')',
+        ),
+        # if there's already a trailing comma, don't add a new one
+        (
+            'f(\n'
+            '    a,)',
+
+            'f(\n'
+            '    a,\n'
+            ')',
+        ),
+        (
+            'with a(\n'
+            '    b,\n'
+            '    c):\n'
+            '    pass',
+
+            'with a(\n'
+            '    b,\n'
+            '    c,\n'
+            '):\n'
+            '    pass',
+        ),
+        (
+            'if True:\n'
+            '    with a(\n'
+            '        b,\n'
+            '        c):\n'
+            '        pass',
+
+            'if True:\n'
+            '    with a(\n'
+            '        b,\n'
+            '        c,\n'
+            '    ):\n'
+            '        pass',
+        ),
+        (
+            "{'foo': 'bar',\n"
+            " 'baz':\n"
+            '    {\n'
+            "       'id': 1,\n"
+            ' },\n'
+            ' }',
+
+            # TODO: need to adjust trailing braces
+            '{\n'
+            "    'foo': 'bar',\n"
+            "    'baz':\n"
+            '       {\n'
+            "          'id': 1,\n"
+            '    },\n'
+            '    }',
+        ),
+        (
+            'f(g(\n'
+            '      a,\n'
+            '  ),\n'
+            '  1,\n'
+            ')',
+
+            'f(\n'
+            '    g(\n'
+            '        a,\n'
+            '    ),\n'
+            '    1,\n'
+            ')',
+        ),
+    ),
+)
+def test_fix_unhugs(src, expected):
+    assert _fix_src(src, py35_plus=False) == expected
+
+
 def test_main_trivial():
     assert main(()) == 0
 
