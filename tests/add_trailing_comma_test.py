@@ -447,6 +447,32 @@ def test_noop_unhugs(src):
             '    ),\n'
             ')',
         ),
+        (
+            'x = [long_function_name(arg,\n'
+            '                        arg),\n'
+            '     long_function_name(arg,\n'
+            '                        arg)]',
+
+            'x = [\n'
+            '    long_function_name(\n'
+            '        arg,\n'
+            '        arg,\n'
+            '    ),\n'
+            '    long_function_name(\n'
+            '        arg,\n'
+            '        arg,\n'
+            '    ),\n'
+            ']',
+        ),
+        (
+            'x = ("foo"\n'
+            '     "bar")',
+
+            'x = (\n'
+            '    "foo"\n'
+            '    "bar"\n'
+            ')',
+        ),
     ),
 )
 def test_fix_unhugs(src, expected):
@@ -523,6 +549,30 @@ def test_noop_trailing_brace(src):
             'x = [\n'
             '    1,\n'
             ']',
+        ),
+        (
+            'x % (\n'
+            '    f(\n'
+            '        a,\n'
+            '    ),\n'
+            '    )',
+
+            'x % (\n'
+            '    f(\n'
+            '        a,\n'
+            '    ),\n'
+            ')',
+        ),
+        (
+            'x = (\n'
+            '    "foo"\n'
+            '    "bar"\n'
+            '    )',
+
+            'x = (\n'
+            '    "foo"\n'
+            '    "bar"\n'
+            ')',
         ),
     ),
 )
