@@ -7,6 +7,7 @@ import collections
 import io
 import sys
 
+from tokenize_rt import ESCAPED_NL
 from tokenize_rt import src_to_tokens
 from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
@@ -20,8 +21,8 @@ Literal = collections.namedtuple('Literal', ('node', 'backtrack'))
 Literal.__new__.__defaults__ = (False,)
 Fix = collections.namedtuple('Fix', ('braces', 'multi_arg', 'initial_indent'))
 
-NEWLINES = frozenset(('NEWLINE', 'NL'))
-NON_CODING_TOKENS = frozenset(('COMMENT', 'NL', UNIMPORTANT_WS))
+NEWLINES = frozenset((ESCAPED_NL, 'NEWLINE', 'NL'))
+NON_CODING_TOKENS = frozenset(('COMMENT', ESCAPED_NL, 'NL', UNIMPORTANT_WS))
 INDENT_TOKENS = frozenset(('INDENT', UNIMPORTANT_WS))
 START_BRACES = frozenset(('(', '{', '['))
 END_BRACES = frozenset((')', '}', ']'))
