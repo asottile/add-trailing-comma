@@ -333,6 +333,13 @@ def _fix_trailing_brace(fix_data, tokens):
         tokens[last_brace - 1] = back_1._replace(src=new_indent)
 
 
+def _changing_list(lst):
+    i = 0
+    while i < len(lst):
+        yield i, lst[i]
+        i += 1
+
+
 def _fix_src(contents_text, py35_plus):
     try:
         ast_obj = ast_parse(contents_text)
@@ -344,7 +351,7 @@ def _fix_src(contents_text, py35_plus):
     py35_plus = py35_plus or visitor.has_new_syntax
 
     tokens = src_to_tokens(contents_text)
-    for i, token in reversed(tuple(enumerate(tokens))):
+    for i, token in _changing_list(tokens):
         key = Offset(token.line, token.utf8_byte_offset)
         add_comma = True
         fix_data = None
@@ -360,17 +367,24 @@ def _fix_src(contents_text, py35_plus):
             add_comma = not func.star_args
             # functions can be treated as calls
             fix_data = _find_call(func, i, tokens)
-        # normally this should be elif, but *tuples* point at the first
-        # argument (which could be a function call!) so we need to check for
-        # tuples again here
-        if key in visitor.literals:
-            fix_data = _find_literal(visitor.literals[key], i, tokens)
+        # Handle parenthesized things
+        elif token.src == '(':
+            fix_data = _find_simple(i, tokens)
+            add_comma = False
 
         if fix_data is not None:
             _fix_comma_and_unhug(fix_data, add_comma, tokens)
 
+        # need to additionally handle literals afterwards as tuples report
+        # their starting index as the first element, which may be one of the
+        # above things.
+        if key in visitor.literals:
+            fix_data = _find_literal(visitor.literals[key], i, tokens)
+            if fix_data is not None:
+                _fix_comma_and_unhug(fix_data, True, tokens)
+
     # Need a second pass to fix trailing braces after indentation is fixed
-    for i, token in reversed(tuple(enumerate(tokens))):
+    for i, token in _changing_list(tokens):
         key = Offset(token.line, token.utf8_byte_offset)
         fix_data = None
 
@@ -378,11 +392,20 @@ def _fix_src(contents_text, py35_plus):
             fix_data = _find_call(visitor.calls[key], i, tokens)
         elif key in visitor.funcs:
             fix_data = _find_call(visitor.funcs[key], i, tokens)
-        elif key in visitor.literals:
-            fix_data = _find_literal(visitor.literals[key], i, tokens)
+        # Handle parenthesized things
+        elif token.src == '(':
+            fix_data = _find_simple(i, tokens)
 
         if fix_data is not None:
             _fix_trailing_brace(fix_data, tokens)
+
+        # need to additionally handle literals afterwards as tuples report
+        # their starting index as the first element, which may be one of the
+        # above things.
+        if key in visitor.literals:
+            fix_data = _find_literal(visitor.literals[key], i, tokens)
+            if fix_data is not None:
+                _fix_trailing_brace(fix_data, tokens)
 
     return tokens_to_src(tokens)
 
