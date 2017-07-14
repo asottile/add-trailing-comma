@@ -17,7 +17,7 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
-    install_requires=['tokenize-rt'],
+    install_requires=['tokenize-rt>=2'],
     py_modules=['add_trailing_comma'],
     entry_points={
         'console_scripts': ['add-trailing-comma = add_trailing_comma:main'],

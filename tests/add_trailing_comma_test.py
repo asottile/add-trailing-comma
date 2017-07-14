@@ -501,6 +501,11 @@ def test_fix_unhugs_py3_only(src, expected):
         '        1, 2, 3, 4,\n'
         '    ],\n'
         ']',
+        # Regression test for #11
+        'foo.\\\n'
+        '    bar(\n'
+        '        5,\n'
+        '    )',
     ),
 )
 def test_noop_trailing_brace(src):
