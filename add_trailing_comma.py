@@ -19,7 +19,10 @@ Func = collections.namedtuple('Func', ('node', 'arg_offsets'))
 Literal = collections.namedtuple('Literal', ('node', 'braces', 'backtrack'))
 Literal.__new__.__defaults__ = (False,)
 
+NEWLINES = frozenset(('NEWLINE', 'NL'))
 NON_CODING_TOKENS = frozenset(('COMMENT', 'NL', UNIMPORTANT_WS))
+INDENT_TOKENS = frozenset(('INDENT', UNIMPORTANT_WS))
+END_BRACES = frozenset((')', '}', ']'))
 
 
 def ast_parse(contents_text):
@@ -159,10 +162,10 @@ class FindNodes(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _fix_inner(brace_start, brace_end, first_paren, tokens):
-    brace_stack = [first_paren]
+def _fix_inner(brace_start, brace_end, first_brace, tokens):
+    brace_stack = [first_brace]
 
-    for i in range(first_paren + 1, len(tokens)):
+    for i in range(first_brace + 1, len(tokens)):
         token = tokens[i]
         if token.src == brace_start:
             brace_stack.append(i)
@@ -174,17 +177,69 @@ def _fix_inner(brace_start, brace_end, first_paren, tokens):
     else:
         raise AssertionError('Past end?')
 
+    last_brace = i
+
     # This was not actually a multi-line call, despite the ast telling us that
-    if tokens[first_paren].line == tokens[i].line:
+    if tokens[first_brace].line == tokens[last_brace].line:
         return
 
+    # Figure out if either of the braces are "hugging"
+    hug_open = tokens[first_brace + 1].name not in NON_CODING_TOKENS
+    hug_close = tokens[last_brace - 1].name not in NON_CODING_TOKENS
+    if hug_open and tokens[last_brace - 1].src in END_BRACES:
+        hug_open = hug_close = False
+
+    # determine the initial indentation
+    i = first_brace
+    while i >= 0 and tokens[i].name not in NEWLINES:
+        i -= 1
+
+    if i >= 0 and tokens[i + 1].name in INDENT_TOKENS:
+        initial_indent = len(tokens[i + 1].src)
+    else:
+        initial_indent = 0
+
+    # fix open hugging
+    if hug_open:
+        new_indent = initial_indent + 4
+
+        tokens[first_brace + 1:first_brace + 1] = [
+            Token('NL', '\n'), Token(UNIMPORTANT_WS, ' ' * new_indent),
+        ]
+        last_brace += 2
+
+        # Adust indentation for the rest of the things
+        min_indent = None
+        indents = []
+        for i in range(first_brace + 3, last_brace):
+            if tokens[i - 1].name == 'NL' and tokens[i].name == UNIMPORTANT_WS:
+                if min_indent is None:
+                    min_indent = len(tokens[i].src)
+                elif len(tokens[i].src) < min_indent:
+                    min_indent = len(tokens[i].src)
+
+                indents.append(i)
+
+        for i in indents:
+            oldlen = len(tokens[i].src)
+            newlen = oldlen - min_indent + new_indent
+            tokens[i] = tokens[i]._replace(src=' ' * newlen)
+
+    # fix close hugging
+    if hug_close:
+        tokens[last_brace:last_brace] = [
+            Token('NL', '\n'),
+            Token(UNIMPORTANT_WS, ' ' * initial_indent),
+        ]
+        last_brace += 2
+
     # From there, we can walk backwards and decide whether a comma is needed
-    i -= 1
+    i = last_brace - 1
     while tokens[i].name in NON_CODING_TOKENS:
         i -= 1
 
     # If we're not a hugging paren, we can insert a comma
-    if tokens[i].src != ',' and tokens[i + 1].src != brace_end:
+    if tokens[i].src != ',' and i + 1 != last_brace:
         tokens.insert(i + 1, Token('OP', ','))
 
 
@@ -201,7 +256,7 @@ def _fix_call(call, i, tokens):
     #     func_name(arg, arg, arg)
     #              ^ outer paren
     brace_start, brace_end = '(', ')'
-    first_paren = None
+    first_brace = None
     paren_stack = []
     for i in range(i, len(tokens)):
         token = tokens[i]
@@ -213,12 +268,12 @@ def _fix_call(call, i, tokens):
             paren_stack.pop()
 
         if (token.line, token.utf8_byte_offset) in call.arg_offsets:
-            first_paren = paren_stack[0]
+            first_brace = paren_stack[0]
             break
     else:
         raise AssertionError('Past end?')
 
-    _fix_inner(brace_start, brace_end, first_paren, tokens)
+    _fix_inner(brace_start, brace_end, first_brace, tokens)
 
 
 def _fix_literal(literal, i, tokens):

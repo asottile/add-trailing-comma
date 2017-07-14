@@ -125,9 +125,6 @@ Note that functions with starargs (`*args`), kwargs (`**kwargs`), or python 3
 keyword-only arguments (`..., *, ...`) cannot have a trailing comma due to it
 being a syntax error.
 
-
-## Planned features
-
 ### unhug trailing paren
 
 ```diff
@@ -147,4 +144,17 @@ being a syntax error.
 +    arg1,
 +    arg2,
 +)
+```
+
+## Planned features
+
+### Match closing brace indentation
+
+```diff
+ x = [
+     1,
+     2,
+     3,
+-    ]
++]
 ```
