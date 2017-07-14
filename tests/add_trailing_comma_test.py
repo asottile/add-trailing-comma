@@ -423,6 +423,30 @@ def test_noop_unhugs(src):
             '    *args\n'
             ')',
         ),
+        (
+            '{"foo": a[0],\n'
+            ' "bar": a[1]}',
+
+            '{\n'
+            '    "foo": a[0],\n'
+            '    "bar": a[1],\n'
+            '}',
+        ),
+        (
+            'x = (f(\n'
+            '    a,\n'
+            '), f(\n'
+            '    a,\n'
+            '))',
+
+            'x = (\n'
+            '    f(\n'
+            '        a,\n'
+            '    ), f(\n'
+            '        a,\n'
+            '    ),\n'
+            ')',
+        ),
     ),
 )
 def test_fix_unhugs(src, expected):
