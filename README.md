@@ -146,9 +146,7 @@ being a syntax error.
 +)
 ```
 
-## Planned features
-
-### Match closing brace indentation
+### match closing brace indentation
 
 ```diff
  x = [
