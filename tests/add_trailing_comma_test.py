@@ -11,6 +11,7 @@ from add_trailing_comma import _fix_src
 from add_trailing_comma import main
 
 
+xfailif_py2 = pytest.mark.xfail(sys.version_info < (3,), reason='py3+')
 xfailif_lt_py35 = pytest.mark.xfail(sys.version_info < (3, 5), reason='py35+')
 
 
@@ -264,7 +265,7 @@ def test_noop_tuple_literal_without_braces():
         # *args forbid trailing commas
         'def f(\n'
         '        *args\n'
-        '): pass'
+        '): pass',
         # **kwargs forbid trailing commas
         'def f(\n'
         '        **kwargs\n'
@@ -415,9 +416,53 @@ def test_noop_unhugs(src):
             '    1,\n'
             ')',
         ),
+        (
+            'f(\n'
+            '    *args)',
+
+            'f(\n'
+            '    *args\n'
+            ')',
+        ),
     ),
 )
 def test_fix_unhugs(src, expected):
+    assert _fix_src(src, py35_plus=False) == expected
+
+
+@xfailif_py2
+@pytest.mark.parametrize(
+    ('src', 'expected'),
+    (
+        # python 2 doesn't give offset information for starargs
+        (
+            'def f(\n'
+            '    *args): pass',
+
+            'def f(\n'
+            '    *args\n'
+            '): pass',
+        ),
+        (
+            'def f(\n'
+            '    **kwargs): pass',
+
+            'def f(\n'
+            '    **kwargs\n'
+            '): pass',
+        ),
+        # python 2 doesn't kwonlyargs
+        (
+            'def f(\n'
+            '    *, kw=1, kw2=2): pass',
+
+            'def f(\n'
+            '    *, kw=1, kw2=2\n'
+            '): pass',
+        ),
+    ),
+)
+def test_fix_unhugs_py3_only(src, expected):
     assert _fix_src(src, py35_plus=False) == expected
 
 
