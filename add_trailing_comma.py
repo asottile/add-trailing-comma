@@ -16,13 +16,14 @@ from tokenize_rt import UNIMPORTANT_WS
 Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
 Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
 Func = collections.namedtuple('Func', ('node', 'star_args', 'arg_offsets'))
-Literal = collections.namedtuple('Literal', ('node', 'braces', 'backtrack'))
+Literal = collections.namedtuple('Literal', ('node', 'backtrack'))
 Literal.__new__.__defaults__ = (False,)
-Fix = collections.namedtuple('Fix', ('braces', 'initial_indent'))
+Fix = collections.namedtuple('Fix', ('braces', 'multi_arg', 'initial_indent'))
 
 NEWLINES = frozenset(('NEWLINE', 'NL'))
 NON_CODING_TOKENS = frozenset(('COMMENT', 'NL', UNIMPORTANT_WS))
 INDENT_TOKENS = frozenset(('INDENT', UNIMPORTANT_WS))
+START_BRACES = frozenset(('(', '{', '['))
 END_BRACES = frozenset((')', '}', ']'))
 
 
@@ -76,24 +77,18 @@ class FindNodes(ast.NodeVisitor):
             self.literals[key] = Literal(node, **kwargs)
             self.generic_visit(node)
 
-    def visit_Set(self, node):
-        self._visit_literal(node, braces=('{', '}'))
+    visit_Set = visit_List = _visit_literal
 
     def visit_Dict(self, node):
         # unpackings are represented as a `None` key
         if None in node.keys:  # pragma: no cover (PY35+)
             self.has_new_syntax = True
-        self._visit_literal(node, key='values', braces=('{', '}'))
-
-    def visit_List(self, node):
-        self._visit_literal(node, braces=('[', ']'))
+        self._visit_literal(node, key='values')
 
     def visit_Tuple(self, node):
         # tuples lie about things, so we pretend they are all multiline
         # and tell the later machinery to backtrack
-        self._visit_literal(
-            node, is_multiline=True, braces=('(', ')'), backtrack=True,
-        )
+        self._visit_literal(node, is_multiline=True, backtrack=True)
 
     def visit_Call(self, node):
         orig = node.lineno
@@ -174,15 +169,19 @@ class FindNodes(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _find_simple(brace_start, brace_end, first_brace, tokens):
+def _find_simple(first_brace, tokens):
     brace_stack = [first_brace]
+    multi_arg = False
 
     for i in range(first_brace + 1, len(tokens)):
         token = tokens[i]
-        if token.src == brace_start:
+        if token.src in START_BRACES:
             brace_stack.append(i)
-        elif token.src == brace_end:
+        elif token.src in END_BRACES:
             brace_stack.pop()
+
+        if len(brace_stack) == 1 and token.src == ',':
+            multi_arg = True
 
         if not brace_stack:
             break
@@ -205,7 +204,7 @@ def _find_simple(brace_start, brace_end, first_brace, tokens):
     else:
         initial_indent = 0
 
-    return Fix(braces=(first_brace, last_brace), initial_indent=initial_indent)
+    return Fix((first_brace, last_brace), multi_arg, initial_indent)
 
 
 def _find_call(call, i, tokens):
@@ -220,16 +219,15 @@ def _find_call(call, i, tokens):
     #
     #     func_name(arg, arg, arg)
     #              ^ outer paren
-    brace_start, brace_end = '(', ')'
     first_brace = None
     paren_stack = []
     for i in range(i, len(tokens)):
         token = tokens[i]
-        if token.src == brace_start:
+        if token.src == '(':
             paren_stack.append(i)
         # the ast lies to us about the beginning of parenthesized functions.
         # See #3. (why we make sure there's something to pop here)
-        elif token.src == brace_end and paren_stack:
+        elif token.src == ')' and paren_stack:
             paren_stack.pop()
 
         if (token.line, token.utf8_byte_offset) in call.arg_offsets:
@@ -238,12 +236,10 @@ def _find_call(call, i, tokens):
     else:
         raise AssertionError('Past end?')
 
-    return _find_simple(brace_start, brace_end, first_brace, tokens)
+    return _find_simple(first_brace, tokens)
 
 
 def _find_literal(literal, i, tokens):
-    brace_start, brace_end = literal.braces
-
     # tuples are evil, we need to backtrack to find the opening paren
     if literal.backtrack:
         i -= 1
@@ -251,10 +247,10 @@ def _find_literal(literal, i, tokens):
             i -= 1
         # Sometimes tuples don't even have a paren!
         # x = 1, 2, 3
-        if tokens[i].src != brace_start:
+        if tokens[i].src != '(':
             return
 
-    return _find_simple(brace_start, brace_end, i, tokens)
+    return _find_simple(i, tokens)
 
 
 def _fix_comma_and_unhug(fix_data, add_comma, tokens):
@@ -263,7 +259,11 @@ def _fix_comma_and_unhug(fix_data, add_comma, tokens):
     # Figure out if either of the braces are "hugging"
     hug_open = tokens[first_brace + 1].name not in NON_CODING_TOKENS
     hug_close = tokens[last_brace - 1].name not in NON_CODING_TOKENS
-    if hug_open and tokens[last_brace - 1].src in END_BRACES:
+    if (
+            not fix_data.multi_arg and
+            hug_open and
+            tokens[last_brace - 1].src in END_BRACES
+    ):
         hug_open = hug_close = False
 
     # fix open hugging
@@ -278,19 +278,26 @@ def _fix_comma_and_unhug(fix_data, add_comma, tokens):
         # Adust indentation for the rest of the things
         min_indent = None
         indents = []
+        insert_indents = []
         for i in range(first_brace + 3, last_brace):
-            if tokens[i - 1].name == 'NL' and tokens[i].name == UNIMPORTANT_WS:
-                if min_indent is None:
-                    min_indent = len(tokens[i].src)
-                elif len(tokens[i].src) < min_indent:
-                    min_indent = len(tokens[i].src)
-
-                indents.append(i)
+            if tokens[i - 1].name == 'NL':
+                if tokens[i].name != UNIMPORTANT_WS:
+                    min_indent = 0
+                    insert_indents.append(i)
+                else:
+                    if min_indent is None:
+                        min_indent = len(tokens[i].src)
+                    elif len(tokens[i].src) < min_indent:
+                        min_indent = len(tokens[i].src)
+                    indents.append(i)
 
         for i in indents:
             oldlen = len(tokens[i].src)
             newlen = oldlen - min_indent + new_indent
             tokens[i] = tokens[i]._replace(src=' ' * newlen)
+        for i in reversed(insert_indents):
+            tokens.insert(i, Token(UNIMPORTANT_WS, ' ' * new_indent))
+            last_brace += 1
 
     # fix close hugging
     if hug_close:
@@ -352,7 +359,10 @@ def _fix_src(contents_text, py35_plus):
             add_comma = not func.star_args
             # functions can be treated as calls
             fix_data = _find_call(func, i, tokens)
-        elif key in visitor.literals:
+        # normally this should be elif, but *tuples* point at the first
+        # argument (which could be a function call!) so we need to check for
+        # tuples again here
+        if key in visitor.literals:
             fix_data = _find_literal(visitor.literals[key], i, tokens)
 
         if fix_data is not None:
