@@ -310,6 +310,21 @@ def _fix_comma_and_unhug(fix_data, add_comma, tokens):
         tokens.insert(i + 1, Token('OP', ','))
 
 
+def _fix_trailing_brace(fix_data, tokens):
+    _, last_brace = fix_data.braces
+
+    back_1 = tokens[last_brace - 1]
+    back_2 = tokens[last_brace - 2]
+
+    if (
+            back_1.name == UNIMPORTANT_WS and
+            back_2.name == 'NL' and
+            len(back_1.src) != fix_data.initial_indent
+    ):
+        new_indent = fix_data.initial_indent * ' '
+        tokens[last_brace - 1] = back_1._replace(src=new_indent)
+
+
 def _fix_src(contents_text, py35_plus):
     try:
         ast_obj = ast_parse(contents_text)
@@ -342,6 +357,21 @@ def _fix_src(contents_text, py35_plus):
 
         if fix_data is not None:
             _fix_comma_and_unhug(fix_data, add_comma, tokens)
+
+    # Need a second pass to fix trailing braces after indentation is fixed
+    for i, token in reversed(tuple(enumerate(tokens))):
+        key = Offset(token.line, token.utf8_byte_offset)
+        fix_data = None
+
+        if key in visitor.calls:
+            fix_data = _find_call(visitor.calls[key], i, tokens)
+        elif key in visitor.funcs:
+            fix_data = _find_call(visitor.funcs[key], i, tokens)
+        elif key in visitor.literals:
+            fix_data = _find_literal(visitor.literals[key], i, tokens)
+
+        if fix_data is not None:
+            _fix_trailing_brace(fix_data, tokens)
 
     return tokens_to_src(tokens)
 

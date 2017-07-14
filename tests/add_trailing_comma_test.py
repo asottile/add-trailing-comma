@@ -393,14 +393,13 @@ def test_noop_unhugs(src):
             ' },\n'
             ' }',
 
-            # TODO: need to adjust trailing braces
             '{\n'
             "    'foo': 'bar',\n"
             "    'baz':\n"
             '       {\n'
             "          'id': 1,\n"
-            '    },\n'
-            '    }',
+            '       },\n'
+            '}',
         ),
         (
             'f(g(\n'
@@ -463,6 +462,42 @@ def test_fix_unhugs(src, expected):
     ),
 )
 def test_fix_unhugs_py3_only(src, expected):
+    assert _fix_src(src, py35_plus=False) == expected
+
+
+@pytest.mark.parametrize(
+    'src',
+    (
+        '[]',
+        'x = [\n'
+        '    1, 2, 3,\n'
+        ']',
+        'y = [\n'
+        '    [\n'
+        '        1, 2, 3, 4,\n'
+        '    ],\n'
+        ']',
+    ),
+)
+def test_noop_trailing_brace(src):
+    assert _fix_src(src, py35_plus=False) == src
+
+
+@pytest.mark.parametrize(
+    ('src', 'expected'),
+    (
+        (
+            'x = [\n'
+            '    1,\n'
+            '    ]',
+
+            'x = [\n'
+            '    1,\n'
+            ']',
+        ),
+    ),
+)
+def test_fix_trailing_brace(src, expected):
     assert _fix_src(src, py35_plus=False) == expected
 
 
