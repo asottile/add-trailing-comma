@@ -251,9 +251,14 @@ def _fix_brace(fix_data, add_comma, tokens):
     hug_open = tokens[first_brace + 1].name not in NON_CODING_TOKENS
     hug_close = tokens[last_brace - 1].name not in NON_CODING_TOKENS
     if (
+            # Don't unhug single element things with a multi-line component
+            # inside.
             not fix_data.multi_arg and
             hug_open and
-            tokens[last_brace - 1].src in END_BRACES
+            tokens[last_brace - 1].src in END_BRACES or
+            # Don't unhug when containing a single token (such as a triple
+            # quoted string).
+            first_brace + 2 == last_brace
     ):
         hug_open = hug_close = False
 

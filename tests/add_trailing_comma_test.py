@@ -312,6 +312,10 @@ def test_fixes_defs(src, expected):
         'f([\n'
         '    1, 2, 3,\n'
         '])',
+        # Single triple-quoted-string argument, don't unhug
+        'textwrap.dedent("""\n'
+        '    hi\n'
+        '""")',
     ),
 )
 def test_noop_unhugs(src):
