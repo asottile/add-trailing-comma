@@ -254,7 +254,7 @@ def _find_literal(literal, i, tokens):
     return _find_simple(i, tokens)
 
 
-def _fix_comma_and_unhug(fix_data, add_comma, tokens):
+def _fix_brace(fix_data, add_comma, tokens):
     first_brace, last_brace = fix_data.braces
 
     # Figure out if either of the braces are "hugging"
@@ -317,13 +317,9 @@ def _fix_comma_and_unhug(fix_data, add_comma, tokens):
     if add_comma and tokens[i].src != ',' and i + 1 != last_brace:
         tokens.insert(i + 1, Token('OP', ','))
 
-
-def _fix_trailing_brace(fix_data, tokens):
-    _, last_brace = fix_data.braces
-
+    # Fix trailing brace to match leading indentation
     back_1 = tokens[last_brace - 1]
     back_2 = tokens[last_brace - 2]
-
     if (
             back_1.name == UNIMPORTANT_WS and
             back_2.name == 'NL' and
@@ -373,7 +369,7 @@ def _fix_src(contents_text, py35_plus):
             add_comma = False
 
         if fix_data is not None:
-            _fix_comma_and_unhug(fix_data, add_comma, tokens)
+            _fix_brace(fix_data, add_comma, tokens)
 
         # need to additionally handle literals afterwards as tuples report
         # their starting index as the first element, which may be one of the
@@ -381,31 +377,7 @@ def _fix_src(contents_text, py35_plus):
         if key in visitor.literals:
             fix_data = _find_literal(visitor.literals[key], i, tokens)
             if fix_data is not None:
-                _fix_comma_and_unhug(fix_data, True, tokens)
-
-    # Need a second pass to fix trailing braces after indentation is fixed
-    for i, token in _changing_list(tokens):
-        key = Offset(token.line, token.utf8_byte_offset)
-        fix_data = None
-
-        if key in visitor.calls:
-            fix_data = _find_call(visitor.calls[key], i, tokens)
-        elif key in visitor.funcs:
-            fix_data = _find_call(visitor.funcs[key], i, tokens)
-        # Handle parenthesized things
-        elif token.src == '(':
-            fix_data = _find_simple(i, tokens)
-
-        if fix_data is not None:
-            _fix_trailing_brace(fix_data, tokens)
-
-        # need to additionally handle literals afterwards as tuples report
-        # their starting index as the first element, which may be one of the
-        # above things.
-        if key in visitor.literals:
-            fix_data = _find_literal(visitor.literals[key], i, tokens)
-            if fix_data is not None:
-                _fix_trailing_brace(fix_data, tokens)
+                _fix_brace(fix_data, True, tokens)
 
     return tokens_to_src(tokens)
 
