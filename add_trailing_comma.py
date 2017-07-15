@@ -16,7 +16,7 @@ from tokenize_rt import UNIMPORTANT_WS
 
 Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
 Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
-Func = collections.namedtuple('Func', ('node', 'star_args', 'arg_offsets'))
+Func = collections.namedtuple('Func', ('node', 'arg_offsets'))
 Literal = collections.namedtuple('Literal', ('node', 'backtrack'))
 Literal.__new__.__defaults__ = (False,)
 Fix = collections.namedtuple('Fix', ('braces', 'multi_arg', 'initial_indent'))
@@ -138,34 +138,24 @@ class FindNodes(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
-        has_starargs = False
-        args = list(node.args.args)
-
-        if node.args.vararg:
-            if isinstance(node.args.vararg, ast.AST):  # pragma: no cover (py3)
-                args.append(node.args.vararg)
-            has_starargs = True
-        if node.args.kwarg:
-            if isinstance(node.args.kwarg, ast.AST):  # pragma: no cover (py3)
-                args.append(node.args.kwarg)
-            has_starargs = True
-        py3_kwonlyargs = getattr(node.args, 'kwonlyargs', None)
-        if py3_kwonlyargs:  # pragma: no cover (py3)
-            args.extend(py3_kwonlyargs)
-            has_starargs = True
+        has_starargs = (
+            node.args.vararg or node.args.kwarg or
+            # python 3 only
+            getattr(node.args, 'kwonlyargs', None)
+        )
 
         orig = node.lineno
         is_multiline = False
         offsets = set()
-        for argnode in args:
+        for argnode in node.args.args:
             offset = _to_offset(argnode)
             if offset.line > orig:
                 is_multiline = True
             offsets.add(offset)
 
-        if is_multiline:
+        if is_multiline and not has_starargs:
             key = Offset(node.lineno, node.col_offset)
-            self.funcs[key] = Func(node, has_starargs, offsets)
+            self.funcs[key] = Func(node, offsets)
 
         self.generic_visit(node)
 
@@ -359,8 +349,6 @@ def _fix_src(contents_text, py35_plus):
             fix_data = _find_call(call, i, tokens)
         elif key in visitor.funcs:
             func = visitor.funcs[key]
-            # any amount of starargs excludes adding a comma for defs
-            add_comma = not func.star_args
             # functions can be treated as calls
             fix_data = _find_call(func, i, tokens)
         # Handle parenthesized things
