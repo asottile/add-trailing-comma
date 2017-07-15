@@ -271,7 +271,7 @@ def _fix_brace(fix_data, add_comma, tokens):
         indents = []
         insert_indents = []
         for i in range(first_brace + 3, last_brace):
-            if tokens[i - 1].name == 'NL':
+            if tokens[i - 1].name == 'NL' and tokens[i].name != 'NL':
                 if tokens[i].name != UNIMPORTANT_WS:
                     min_indent = 0
                     insert_indents.append(i)

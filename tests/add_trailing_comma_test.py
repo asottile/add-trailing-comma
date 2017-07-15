@@ -473,6 +473,22 @@ def test_noop_unhugs(src):
             '    "bar"\n'
             ')',
         ),
+        # Regression test for #17
+        (
+            'x("foo", (\n'
+            '    "bar",\n'
+            '\n'
+            '    "baz",\n'
+            '))',
+
+            'x(\n'
+            '    "foo", (\n'
+            '        "bar",\n'
+            '\n'
+            '        "baz",\n'
+            '    ),\n'
+            ')',
+        ),
     ),
 )
 def test_fix_unhugs(src, expected):
