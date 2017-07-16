@@ -257,6 +257,7 @@ def test_noop_tuple_literal_without_braces():
 @pytest.mark.parametrize(
     'src',
     (
+        'def f(): pass',
         'def f(arg1, arg2): pass',
         'def f(\n'
         '        arg1,\n'
@@ -353,6 +354,22 @@ def test_noop_unhugs(src):
             '    b,\n'
             '    c,\n'
             ')',
+        ),
+        (
+            'def f(\n'
+            '    *args): pass',
+
+            'def f(\n'
+            '    *args\n'
+            '): pass',
+        ),
+        (
+            'def f(\n'
+            '    **kwargs): pass',
+
+            'def f(\n'
+            '    **kwargs\n'
+            '): pass',
         ),
         # if there's already a trailing comma, don't add a new one
         (
@@ -493,6 +510,16 @@ def test_noop_unhugs(src):
             '    ),\n'
             ')',
         ),
+        # Regression test for #16
+        (
+            'x("foo"\n'
+            '  "bar")',
+
+            'x(\n'
+            '    "foo"\n'
+            '    "bar",\n'
+            ')',
+        ),
     ),
 )
 def test_fix_unhugs(src, expected):
@@ -503,23 +530,6 @@ def test_fix_unhugs(src, expected):
 @pytest.mark.parametrize(
     ('src', 'expected'),
     (
-        # python 2 doesn't give offset information for starargs
-        (
-            'def f(\n'
-            '    *args): pass',
-
-            'def f(\n'
-            '    *args\n'
-            '): pass',
-        ),
-        (
-            'def f(\n'
-            '    **kwargs): pass',
-
-            'def f(\n'
-            '    **kwargs\n'
-            '): pass',
-        ),
         # python 2 doesn't kwonlyargs
         (
             'def f(\n'

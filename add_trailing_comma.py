@@ -64,16 +64,12 @@ class FindNodes(ast.NodeVisitor):
         self.literals = {}
         self.has_new_syntax = False
 
-    def _visit_literal(self, node, key='elts', is_multiline=False, **kwargs):
-        orig = node.lineno
-
+    def _visit_literal(self, node, key='elts', **kwargs):
         for elt in getattr(node, key):
-            if elt.lineno > orig:
-                is_multiline = True
             if _is_star_arg(elt):  # pragma: no cover (PY35+)
                 self.has_new_syntax = True
 
-        if is_multiline:
+        if getattr(node, key):
             key = Offset(node.lineno, node.col_offset)
             self.literals[key] = Literal(node, **kwargs)
             self.generic_visit(node)
@@ -87,13 +83,10 @@ class FindNodes(ast.NodeVisitor):
         self._visit_literal(node, key='values')
 
     def visit_Tuple(self, node):
-        # tuples lie about things, so we pretend they are all multiline
-        # and tell the later machinery to backtrack
-        self._visit_literal(node, is_multiline=True, backtrack=True)
+        # tuples lie about things so we tell the later machiner to backtrack
+        self._visit_literal(node, backtrack=True)
 
     def visit_Call(self, node):
-        orig = node.lineno
-
         argnodes = node.args + node.keywords
         py2_starargs = getattr(node, 'starargs', None)
         if py2_starargs:  # pragma: no cover (<PY35)
@@ -103,7 +96,6 @@ class FindNodes(ast.NodeVisitor):
             argnodes.append(py2_kwargs)
 
         arg_offsets = set()
-        is_multiline = False
         has_starargs = bool(py2_starargs or py2_kwargs)
         for argnode in argnodes:
             if (
@@ -115,8 +107,6 @@ class FindNodes(ast.NodeVisitor):
             offset = _to_offset(argnode)
             # multiline strings have invalid position, ignore them
             if offset.utf8_byte_offset != -1:  # pragma: no branch (cpy bug)
-                if offset.line > orig:
-                    is_multiline = True
                 arg_offsets.add(offset)
 
         # If the sole argument is a generator, don't add a trailing comma as
@@ -125,7 +115,7 @@ class FindNodes(ast.NodeVisitor):
             len(argnodes) == 1 and isinstance(argnodes[0], ast.GeneratorExp)
         )
 
-        if is_multiline and not only_a_generator:
+        if arg_offsets and not only_a_generator:
             key = Offset(node.lineno, node.col_offset)
             self.calls[key] = Call(node, has_starargs, arg_offsets)
 
@@ -144,16 +134,12 @@ class FindNodes(ast.NodeVisitor):
             getattr(node.args, 'kwonlyargs', None)
         )
 
-        orig = node.lineno
-        is_multiline = False
         offsets = set()
         for argnode in node.args.args:
             offset = _to_offset(argnode)
-            if offset.line > orig:
-                is_multiline = True
             offsets.add(offset)
 
-        if is_multiline and not has_starargs:
+        if offsets and not has_starargs:
             key = Offset(node.lineno, node.col_offset)
             self.funcs[key] = Func(node, offsets)
 
@@ -181,7 +167,7 @@ def _find_simple(first_brace, tokens):
 
     last_brace = i
 
-    # This was not actually a multi-line call, despite the ast telling us that
+    # Check if we're actually multi-line
     if tokens[first_brace].line == tokens[last_brace].line:
         return
 
