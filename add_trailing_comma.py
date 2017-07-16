@@ -62,24 +62,16 @@ class FindNodes(ast.NodeVisitor):
         self.calls = {}
         self.funcs = {}
         self.literals = {}
-        self.has_new_syntax = False
 
     def _visit_literal(self, node, key='elts', **kwargs):
-        for elt in getattr(node, key):
-            if _is_star_arg(elt):  # pragma: no cover (PY35+)
-                self.has_new_syntax = True
-
         if getattr(node, key):
             key = Offset(node.lineno, node.col_offset)
             self.literals[key] = Literal(node, **kwargs)
-            self.generic_visit(node)
+        self.generic_visit(node)
 
     visit_Set = visit_List = _visit_literal
 
     def visit_Dict(self, node):
-        # unpackings are represented as a `None` key
-        if None in node.keys:  # pragma: no cover (PY35+)
-            self.has_new_syntax = True
         self._visit_literal(node, key='values')
 
     def visit_Tuple(self, node):
@@ -119,12 +111,6 @@ class FindNodes(ast.NodeVisitor):
             key = Offset(node.lineno, node.col_offset)
             self.calls[key] = Call(node, has_starargs, arg_offsets)
 
-        if (
-                sum(_is_star_arg(n) for n in node.args) > 1 or
-                sum(_is_star_star_kwarg(n) for n in node.keywords) > 1
-        ):  # pragma: no cover (PY35+)
-            self.has_new_syntax = True
-
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
@@ -134,14 +120,11 @@ class FindNodes(ast.NodeVisitor):
             getattr(node.args, 'kwonlyargs', None)
         )
 
-        offsets = set()
-        for argnode in node.args.args:
-            offset = _to_offset(argnode)
-            offsets.add(offset)
+        arg_offsets = {_to_offset(arg) for arg in node.args.args}
 
-        if offsets and not has_starargs:
+        if arg_offsets and not has_starargs:
             key = Offset(node.lineno, node.col_offset)
-            self.funcs[key] = Func(node, offsets)
+            self.funcs[key] = Func(node, arg_offsets)
 
         self.generic_visit(node)
 
@@ -325,7 +308,6 @@ def _fix_src(contents_text, py35_plus):
 
     visitor = FindNodes()
     visitor.visit(ast_obj)
-    py35_plus = py35_plus or visitor.has_new_syntax
 
     tokens = src_to_tokens(contents_text)
     for i, token in _changing_list(tokens):

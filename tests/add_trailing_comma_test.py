@@ -84,24 +84,6 @@ def test_py35_plus_rewrite():
     )
 
 
-@xfailif_lt_py35
-@pytest.mark.parametrize(
-    'syntax',
-    (
-        '(1, 2, *a)\n',
-        '[1, 2, *a]\n',
-        '{1, 2, *a}\n',
-        '{1: 2, **k}\n',
-        'y(*args1, *args2)\n',
-        'y(**kwargs1, **kwargs2)\n',
-    ),
-)
-def test_auto_detected_py35_plus_rewrite(syntax):
-    src = syntax + 'x(\n    *args\n)'
-    expected = syntax + 'x(\n    *args,\n)'
-    assert _fix_src(src, py35_plus=False) == expected
-
-
 @pytest.mark.parametrize(
     ('src', 'expected'),
     (
