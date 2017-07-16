@@ -86,8 +86,8 @@ This has the following benefits:
 
 ### trailing commas for function calls with unpackings
 
-If `--py35-plus` is passed (or python3.5+ syntax is automatically detected),
-`add-trailing-comma` will also perform the following change:
+If `--py35-plus` is passed, `add-trailing-comma` will also perform the
+following change:
 
 ```diff
  x(
