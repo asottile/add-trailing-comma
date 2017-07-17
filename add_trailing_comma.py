@@ -59,7 +59,8 @@ def _is_star_star_kwarg(node):
 
 class FindNodes(ast.NodeVisitor):
     def __init__(self):
-        self.calls = {}
+        # multiple calls can report their starting position as the same
+        self.calls = collections.defaultdict(list)
         self.funcs = {}
         self.literals = {}
 
@@ -109,7 +110,7 @@ class FindNodes(ast.NodeVisitor):
 
         if arg_offsets and not only_a_generator:
             key = Offset(node.lineno, node.col_offset)
-            self.calls[key] = Call(node, has_starargs, arg_offsets)
+            self.calls[key].append(Call(node, has_starargs, arg_offsets))
 
         self.generic_visit(node)
 
@@ -312,33 +313,30 @@ def _fix_src(contents_text, py35_plus):
     tokens = src_to_tokens(contents_text)
     for i, token in _changing_list(tokens):
         key = Offset(token.line, token.utf8_byte_offset)
-        add_comma = True
-        fix_data = None
 
+        fixes = []
         if key in visitor.calls:
-            call = visitor.calls[key]
-            # Only fix stararg calls if asked to
-            add_comma = not call.star_args or py35_plus
-            fix_data = _find_call(call, i, tokens)
+            for call in visitor.calls[key]:
+                # Only fix stararg calls if asked to
+                add_comma = not call.star_args or py35_plus
+                fixes.append((add_comma, _find_call(call, i, tokens)))
         elif key in visitor.funcs:
-            func = visitor.funcs[key]
             # functions can be treated as calls
-            fix_data = _find_call(func, i, tokens)
+            fixes.append((True, _find_call(visitor.funcs[key], i, tokens)))
         # Handle parenthesized things
         elif token.src == '(':
-            fix_data = _find_simple(i, tokens)
-            add_comma = False
-
-        if fix_data is not None:
-            _fix_brace(fix_data, add_comma, tokens)
+            fixes.append((False, _find_simple(i, tokens)))
 
         # need to additionally handle literals afterwards as tuples report
         # their starting index as the first element, which may be one of the
         # above things.
         if key in visitor.literals:
             fix_data = _find_literal(visitor.literals[key], i, tokens)
+            fixes.append((True, fix_data))
+
+        for add_comma, fix_data in fixes:
             if fix_data is not None:
-                _fix_brace(fix_data, True, tokens)
+                _fix_brace(fix_data, add_comma, tokens)
 
     return tokens_to_src(tokens)
 
