@@ -124,6 +124,18 @@ def test_py35_plus_rewrite():
             '    x,\n'
             ')',
         ),
+        # Regression test for #23
+        (
+            '(\n'
+            '    {k: v},\n'
+            '    ()\n'
+            ')',
+
+            '(\n'
+            '    {k: v},\n'
+            '    (),\n'
+            ')',
+        ),
     ),
 )
 def test_fixes_calls(src, expected):

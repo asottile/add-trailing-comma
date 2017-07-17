@@ -63,11 +63,12 @@ class FindNodes(ast.NodeVisitor):
         self.calls = collections.defaultdict(list)
         self.funcs = {}
         self.literals = {}
+        self.tuples = {}
 
-    def _visit_literal(self, node, key='elts', **kwargs):
+    def _visit_literal(self, node, key='elts'):
         if getattr(node, key):
             key = Offset(node.lineno, node.col_offset)
-            self.literals[key] = Literal(node, **kwargs)
+            self.literals[key] = Literal(node)
         self.generic_visit(node)
 
     visit_Set = visit_List = _visit_literal
@@ -76,8 +77,11 @@ class FindNodes(ast.NodeVisitor):
         self._visit_literal(node, key='values')
 
     def visit_Tuple(self, node):
-        # tuples lie about things so we tell the later machiner to backtrack
-        self._visit_literal(node, backtrack=True)
+        if node.elts:
+            key = Offset(node.lineno, node.col_offset)
+            # tuples lie about offset -- tell the later machinery to backtrack
+            self.tuples[key] = Literal(node, backtrack=True)
+        self.generic_visit(node)
 
     def visit_Call(self, node):
         argnodes = node.args + node.keywords
@@ -200,16 +204,15 @@ def _find_call(call, i, tokens):
     return _find_simple(first_brace, tokens)
 
 
-def _find_literal(literal, i, tokens):
+def _find_tuple(i, tokens):
     # tuples are evil, we need to backtrack to find the opening paren
-    if literal.backtrack:
+    i -= 1
+    while tokens[i].name in NON_CODING_TOKENS:
         i -= 1
-        while tokens[i].name in NON_CODING_TOKENS:
-            i -= 1
-        # Sometimes tuples don't even have a paren!
-        # x = 1, 2, 3
-        if tokens[i].src != '(':
-            return
+    # Sometimes tuples don't even have a paren!
+    # x = 1, 2, 3
+    if tokens[i].src != '(':
+        return
 
     return _find_simple(i, tokens)
 
@@ -326,13 +329,14 @@ def _fix_src(contents_text, py35_plus):
         # Handle parenthesized things
         elif token.src == '(':
             fixes.append((False, _find_simple(i, tokens)))
+        elif key in visitor.literals:
+            fixes.append((True, _find_simple(i, tokens)))
 
         # need to additionally handle literals afterwards as tuples report
         # their starting index as the first element, which may be one of the
         # above things.
-        if key in visitor.literals:
-            fix_data = _find_literal(visitor.literals[key], i, tokens)
-            fixes.append((True, fix_data))
+        if key in visitor.tuples:
+            fixes.append((True, _find_tuple(i, tokens)))
 
         for add_comma, fix_data in fixes:
             if fix_data is not None:
