@@ -20,7 +20,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/asottile/add-trailing-comma
-    sha: v0.5.0
+    sha: v0.5.1
     hooks:
     -   id: add-trailing-comma
 ```
