@@ -114,6 +114,16 @@ def test_py35_plus_rewrite():
             '    1,\n'
             ')',
         ),
+        # Regression test for #22
+        (
+            'x({}).y(\n'
+            '    x\n'
+            ')',
+
+            'x({}).y(\n'
+            '    x,\n'
+            ')',
+        ),
     ),
 )
 def test_fixes_calls(src, expected):
