@@ -130,7 +130,19 @@ following change:
  def f(
 -    *args
 +    *args,
- ):
+ ): pass
+
+
+ def g(
+-    **kwargs
++    **kwargs,
+ ): pass
+
+
+ def h(
+-    *, kw=1
++    *, kw=1,
+ ): pass
 ```
 
 Note that this would cause a **`SyntaxError`** in earlier python versions.
