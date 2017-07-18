@@ -325,6 +325,9 @@ def _fix_src(contents_text, py35_plus, py36_plus):
 
     tokens = src_to_tokens(contents_text)
     for i, token in _changing_list(tokens):
+        # DEDENT is a zero length token
+        if not token.src:
+            continue
         key = Offset(token.line, token.utf8_byte_offset)
 
         fixes = []

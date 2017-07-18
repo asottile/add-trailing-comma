@@ -149,9 +149,13 @@ def test_fixes_calls(src, expected):
         '[1, 2, 3, 4]',
         '{1, 2, 3, 4}',
         '{1: 2, 3: 4}',
+        # Regression test for #26
+        'if True:\n'
+        '    pass\n'
+        '[x] = {y}',
     ),
 )
-def test_noop_one_line_literals(src):
+def test_noop_literals(src):
     assert _fix_src(src, py35_plus=False, py36_plus=False) == src
 
 
