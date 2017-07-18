@@ -16,7 +16,7 @@ from tokenize_rt import UNIMPORTANT_WS
 
 Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
 Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
-Func = collections.namedtuple('Func', ('node', 'arg_offsets'))
+Func = collections.namedtuple('Func', ('node', 'star_args', 'arg_offsets'))
 Literal = collections.namedtuple('Literal', ('node', 'backtrack'))
 Literal.__new__.__defaults__ = (False,)
 Fix = collections.namedtuple('Fix', ('braces', 'multi_arg', 'initial_indent'))
@@ -119,17 +119,27 @@ class FindNodes(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
-        has_starargs = (
-            node.args.vararg or node.args.kwarg or
-            # python 3 only
-            getattr(node.args, 'kwonlyargs', None)
-        )
+        has_starargs = False
+        args = list(node.args.args)
 
-        arg_offsets = {_to_offset(arg) for arg in node.args.args}
+        if node.args.vararg:
+            if isinstance(node.args.vararg, ast.AST):  # pragma: no cover (py3)
+                args.append(node.args.vararg)
+            has_starargs = True
+        if node.args.kwarg:
+            if isinstance(node.args.kwarg, ast.AST):  # pragma: no cover (py3)
+                args.append(node.args.kwarg)
+            has_starargs = True
+        py3_kwonlyargs = getattr(node.args, 'kwonlyargs', None)
+        if py3_kwonlyargs:  # pragma: no cover (py3)
+            args.extend(py3_kwonlyargs)
+            has_starargs = True
 
-        if arg_offsets and not has_starargs:
+        arg_offsets = {_to_offset(arg) for arg in args}
+
+        if arg_offsets:
             key = Offset(node.lineno, node.col_offset)
-            self.funcs[key] = Func(node, arg_offsets)
+            self.funcs[key] = Func(node, has_starargs, arg_offsets)
 
         self.generic_visit(node)
 
@@ -304,7 +314,7 @@ def _changing_list(lst):
         i += 1
 
 
-def _fix_src(contents_text, py35_plus):
+def _fix_src(contents_text, py35_plus, py36_plus):
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -324,8 +334,10 @@ def _fix_src(contents_text, py35_plus):
                 add_comma = not call.star_args or py35_plus
                 fixes.append((add_comma, _find_call(call, i, tokens)))
         elif key in visitor.funcs:
+            func = visitor.funcs[key]
+            add_comma = not func.star_args or py36_plus
             # functions can be treated as calls
-            fixes.append((True, _find_call(visitor.funcs[key], i, tokens)))
+            fixes.append((add_comma, _find_call(func, i, tokens)))
         # Handle parenthesized things
         elif token.src == '(':
             fixes.append((False, _find_simple(i, tokens)))
@@ -355,7 +367,7 @@ def fix_file(filename, args):
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
-    contents_text = _fix_src(contents_text, args.py35_plus)
+    contents_text = _fix_src(contents_text, args.py35_plus, args.py36_plus)
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
@@ -366,10 +378,25 @@ def fix_file(filename, args):
     return 0
 
 
+class StoreTrueImplies(argparse.Action):
+    def __init__(self, option_strings, dest, implies, **kwargs):
+        self.implies = implies
+        kwargs.update(const=True, default=False, nargs=0)
+        super(StoreTrueImplies, self).__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        assert hasattr(namespace, self.implies), self.implies
+        setattr(namespace, self.dest, self.const)
+        setattr(namespace, self.implies, self.const)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--py35-plus', action='store_true')
+    parser.add_argument(
+        '--py36-plus', action=StoreTrueImplies, implies='py35_plus',
+    )
     args = parser.parse_args(argv)
 
     ret = 0
