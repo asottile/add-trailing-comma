@@ -121,9 +121,19 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
  ):
 ```
 
-Note that functions with starargs (`*args`), kwargs (`**kwargs`), or python 3
-keyword-only arguments (`..., *, ...`) cannot have a trailing comma due to it
-being a syntax error.
+### trailing commas for function definitions with unpacking arguments
+
+If `--py36-plus` is passed, `add-trailing-comma` will also perform the
+following change:
+
+```diff
+ def f(
+-    *args
++    *args,
+ ):
+```
+
+Note that this would cause a **`SyntaxError`** in earlier python versions.
 
 ### unhug trailing paren
 

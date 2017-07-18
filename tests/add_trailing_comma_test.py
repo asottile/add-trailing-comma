@@ -50,7 +50,7 @@ xfailif_lt_py35 = pytest.mark.xfail(sys.version_info < (3, 5), reason='py35+')
     ),
 )
 def test_fix_calls_noops(src):
-    ret = _fix_src(src, py35_plus=False)
+    ret = _fix_src(src, py35_plus=False, py36_plus=False)
     assert ret == src
 
 
@@ -67,7 +67,7 @@ def test_ignores_invalid_ast_node():
         '    """\n'
         ')'
     )
-    assert _fix_src(src, py35_plus=False) == src
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
 
 
 def test_py35_plus_rewrite():
@@ -76,7 +76,7 @@ def test_py35_plus_rewrite():
         '    *args\n'
         ')'
     )
-    ret = _fix_src(src, py35_plus=True)
+    ret = _fix_src(src, py35_plus=True, py36_plus=False)
     assert ret == (
         'x(\n'
         '    *args,\n'
@@ -139,7 +139,7 @@ def test_py35_plus_rewrite():
     ),
 )
 def test_fixes_calls(src, expected):
-    assert _fix_src(src, py35_plus=False) == expected
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
 @pytest.mark.parametrize(
@@ -152,7 +152,7 @@ def test_fixes_calls(src, expected):
     ),
 )
 def test_noop_one_line_literals(src):
-    assert _fix_src(src, py35_plus=False) == src
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
 
 
 @pytest.mark.parametrize(
@@ -199,7 +199,7 @@ def test_noop_one_line_literals(src):
     ),
 )
 def test_fixes_literals(src, expected):
-    assert _fix_src(src, py35_plus=False) == expected
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
 @xfailif_lt_py35
@@ -245,7 +245,7 @@ def test_fixes_literals(src, expected):
     ),
 )
 def test_fixes_py35_plus_literals(src, expected):
-    assert _fix_src(src, py35_plus=False) == expected
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
 def test_noop_tuple_literal_without_braces():
@@ -255,7 +255,7 @@ def test_noop_tuple_literal_without_braces():
         '    2, \\\n'
         '    3'
     )
-    assert _fix_src(src, py35_plus=False) == src
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
 
 
 @pytest.mark.parametrize(
@@ -282,7 +282,7 @@ def test_noop_tuple_literal_without_braces():
     ),
 )
 def test_noop_function_defs(src):
-    assert _fix_src(src, py35_plus=False) == src
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
 
 
 @pytest.mark.parametrize(
@@ -300,7 +300,44 @@ def test_noop_function_defs(src):
     ),
 )
 def test_fixes_defs(src, expected):
-    assert _fix_src(src, py35_plus=False) == expected
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+
+
+@xfailif_py2
+@pytest.mark.parametrize(
+    ('src', 'expected'),
+    (
+        (
+            'def f(\n'
+            '    *args\n'
+            '): pass',
+
+            'def f(\n'
+            '    *args,\n'
+            '): pass',
+        ),
+        (
+            'def f(\n'
+            '    **kwargs\n'
+            '): pass',
+
+            'def f(\n'
+            '    **kwargs,\n'
+            '): pass',
+        ),
+        (
+            'def f(\n'
+            '    *, kw=1\n'
+            '): pass',
+
+            'def f(\n'
+            '    *, kw=1,\n'
+            '): pass',
+        ),
+    ),
+)
+def test_fixes_defs_py36_plus(src, expected):
+    assert _fix_src(src, py35_plus=True, py36_plus=True) == expected
 
 
 @pytest.mark.parametrize(
@@ -324,7 +361,7 @@ def test_fixes_defs(src, expected):
     ),
 )
 def test_noop_unhugs(src):
-    assert _fix_src(src, py35_plus=False) == src
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
 
 
 @pytest.mark.parametrize(
@@ -527,7 +564,7 @@ def test_noop_unhugs(src):
     ),
 )
 def test_fix_unhugs(src, expected):
-    assert _fix_src(src, py35_plus=False) == expected
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
 @xfailif_py2
@@ -546,7 +583,7 @@ def test_fix_unhugs(src, expected):
     ),
 )
 def test_fix_unhugs_py3_only(src, expected):
-    assert _fix_src(src, py35_plus=False) == expected
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
 @pytest.mark.parametrize(
@@ -569,7 +606,7 @@ def test_fix_unhugs_py3_only(src, expected):
     ),
 )
 def test_noop_trailing_brace(src):
-    assert _fix_src(src, py35_plus=False) == src
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
 
 
 @pytest.mark.parametrize(
@@ -611,7 +648,7 @@ def test_noop_trailing_brace(src):
     ),
 )
 def test_fix_trailing_brace(src, expected):
-    assert _fix_src(src, py35_plus=False) == expected
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
 def test_main_trivial():
@@ -664,3 +701,24 @@ def test_main_py35_plus_argument_star_star_kwargs(tmpdir):
     assert f.read() == 'x(\n    **args\n)\n'
     assert main((f.strpath, '--py35-plus')) == 1
     assert f.read() == 'x(\n    **args,\n)\n'
+
+
+def test_main_py36_plus_implies_py35_plus(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('x(\n    **kwargs\n)\n')
+    assert main((f.strpath,)) == 0
+    assert f.read() == 'x(\n    **kwargs\n)\n'
+    assert main((f.strpath, '--py36-plus')) == 1
+    assert f.read() == 'x(\n    **kwargs,\n)\n'
+
+
+@xfailif_py2
+def test_main_py36_plus_function_trailing_commas(
+        tmpdir,
+):  # pragma: no cover (py3+)
+    f = tmpdir.join('f.py')
+    f.write('def f(\n    **kwargs\n): pass\n')
+    assert main((f.strpath,)) == 0
+    assert f.read() == 'def f(\n    **kwargs\n): pass\n'
+    assert main((f.strpath, '--py36-plus')) == 1
+    assert f.read() == 'def f(\n    **kwargs,\n): pass\n'
