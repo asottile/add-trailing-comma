@@ -565,6 +565,18 @@ def test_noop_unhugs(src):
             '    "bar",\n'
             ')',
         ),
+        # Regression test for #29
+        (
+            'x = ([a,\n'
+            '      b], None)',
+
+            'x = (\n'
+            '    [\n'
+            '        a,\n'
+            '        b,\n'
+            '    ], None,\n'
+            ')',
+        ),
     ),
 )
 def test_fix_unhugs(src, expected):

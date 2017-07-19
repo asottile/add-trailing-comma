@@ -347,15 +347,17 @@ def _fix_src(contents_text, py35_plus, py36_plus):
         elif key in visitor.literals:
             fixes.append((True, _find_simple(i, tokens)))
 
-        # need to additionally handle literals afterwards as tuples report
-        # their starting index as the first element, which may be one of the
-        # above things.
-        if key in visitor.tuples:
-            fixes.append((True, _find_tuple(i, tokens)))
-
         for add_comma, fix_data in fixes:
             if fix_data is not None:
                 _fix_brace(fix_data, add_comma, tokens)
+
+        # need to handle tuples afterwards as tuples report their starting
+        # starting index as the first element, which may be one of the above
+        # things.
+        if key in visitor.tuples:
+            fix_data = _find_tuple(i, tokens)
+            if fix_data is not None:
+                _fix_brace(fix_data, True, tokens)
 
     return tokens_to_src(tokens)
 
