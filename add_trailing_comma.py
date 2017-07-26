@@ -341,11 +341,11 @@ def _fix_src(contents_text, py35_plus, py36_plus):
             add_comma = not func.star_args or py36_plus
             # functions can be treated as calls
             fixes.append((add_comma, _find_call(func, i, tokens)))
-        # Handle parenthesized things
-        elif token.src == '(':
-            fixes.append((False, _find_simple(i, tokens)))
         elif key in visitor.literals:
             fixes.append((True, _find_simple(i, tokens)))
+        # Handle parenthesized things, unhug of tuples, and comprehensions
+        elif token.src in START_BRACES:
+            fixes.append((False, _find_simple(i, tokens)))
 
         for add_comma, fix_data in fixes:
             if fix_data is not None:
