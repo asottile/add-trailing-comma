@@ -363,12 +363,10 @@ def _fix_src(contents_text, py35_plus, py36_plus):
 
 
 def fix_file(filename, args):
-    with open(filename, 'rb') as f:
-        contents_bytes = f.read()
-
     try:
-        contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
-    except UnicodeDecodeError:
+        with io.open(filename, 'r', encoding='UTF-8') as f:
+            contents_text_orig = contents_text = f.read()
+    except ValueError:
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
