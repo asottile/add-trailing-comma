@@ -363,7 +363,7 @@ def _fix_src(contents_text, py35_plus, py36_plus):
 
 
 def fix_file(filename, args):
-    with io.open(filename, 'rb', newline='') as f:
+    with io.open(filename, 'rb') as f:
         contents_bytes = f.read()
 
     try:
