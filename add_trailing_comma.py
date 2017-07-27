@@ -363,10 +363,12 @@ def _fix_src(contents_text, py35_plus, py36_plus):
 
 
 def fix_file(filename, args):
+    with io.open(filename, 'rb') as f:
+        contents_bytes = f.read()
+
     try:
-        with io.open(filename, 'r', encoding='UTF-8') as f:
-            contents_text_orig = contents_text = f.read()
-    except ValueError:
+        contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
+    except UnicodeDecodeError:
         print('{} is non-utf-8 (not supported)'.format(filename))
         return 1
 
@@ -374,7 +376,7 @@ def fix_file(filename, args):
 
     if contents_text != contents_text_orig:
         print('Rewriting {}'.format(filename))
-        with io.open(filename, 'w', encoding='UTF-8') as f:
+        with io.open(filename, 'w', newlines='', encoding='UTF-8') as f:
             f.write(contents_text)
         return 1
 
