@@ -687,6 +687,15 @@ def test_main_changes_a_file(tmpdir, capsys):
     assert f.read() == 'x(\n    1,\n)\n'
 
 
+def test_main_preserves_line_endings(tmpdir, capsys):
+    f = tmpdir.join('f.py')
+    f.write_binary(b'x(\r\n    1\r\n)\r\n')
+    assert main((f.strpath,)) == 1
+    out, _ = capsys.readouterr()
+    assert out == 'Rewriting {}\n'.format(f.strpath)
+    assert f.read_binary() == b'x(\r\n    1,\r\n)\r\n'
+
+
 def test_main_syntax_error(tmpdir):
     f = tmpdir.join('f.py')
     f.write('from __future__ import print_function\nprint 1\n')
