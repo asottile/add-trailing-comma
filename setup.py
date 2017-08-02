@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='add_trailing_comma',
     description='Automatically add trailing commas to calls and literals',
-    url='https://github.com/asottile/add_trailing_comma',
+    url='https://github.com/asottile/add-trailing-comma',
     version='0.6.3',
     author='Anthony Sottile',
     author_email='asottile@umich.edu',
