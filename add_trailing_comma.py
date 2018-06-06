@@ -383,26 +383,15 @@ def fix_file(filename, args):
     return 0
 
 
-class StoreTrueImplies(argparse.Action):
-    def __init__(self, option_strings, dest, implies, **kwargs):
-        self.implies = implies
-        kwargs.update(const=True, default=False, nargs=0)
-        super(StoreTrueImplies, self).__init__(option_strings, dest, **kwargs)
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        assert hasattr(namespace, self.implies), self.implies
-        setattr(namespace, self.dest, self.const)
-        setattr(namespace, self.implies, self.const)
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--py35-plus', action='store_true')
-    parser.add_argument(
-        '--py36-plus', action=StoreTrueImplies, implies='py35_plus',
-    )
+    parser.add_argument('--py36-plus', action='store_true')
     args = parser.parse_args(argv)
+
+    if args.py36_plus:
+        args.py35_plus = True
 
     ret = 0
     for filename in args.filenames:
