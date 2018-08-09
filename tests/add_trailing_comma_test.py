@@ -764,3 +764,16 @@ def test_main_py36_plus_function_trailing_commas(
     assert f.read() == 'def f(\n    **kwargs\n): pass\n'
     assert main((f.strpath, '--py36-plus')) == 1
     assert f.read() == 'def f(\n    **kwargs,\n): pass\n'
+
+
+@pytest.mark.parametrize('option', ['-r', '--recursive'])
+def test_main_recursive(tmpdir, option):
+    path = str(tmpdir)
+    f = tmpdir.join('f.py')
+    f.write('x(\n    1\n)\n')
+
+    with pytest.raises(IsADirectoryError):
+        main((path,))
+
+    assert main((path, option)) == 1
+    assert f.read() == 'x(\n    1,\n)\n'
