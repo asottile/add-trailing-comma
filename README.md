@@ -12,6 +12,21 @@ literals.
 
 `pip install add-trailing-comma`
 
+## Usage 
+
+```bash
+usage: add_trailing_comma.py [-h] [-r] [--py35-plus] [--py36-plus]
+                             [filenames [filenames ...]]
+
+positional arguments:
+  filenames
+
+optional arguments:
+  -h, --help       show this help message and exit
+  -r, --recursive
+  --py35-plus
+  --py36-plus
+```
 
 ## As a pre-commit hook
 

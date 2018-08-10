@@ -5,6 +5,7 @@ import argparse
 import ast
 import collections
 import io
+import os
 import sys
 
 from tokenize_rt import ESCAPED_NL
@@ -383,9 +384,17 @@ def fix_file(filename, args):
     return 0
 
 
+def files_from_dir(dirname, file_ext='.py'):
+    for path, _, files in os.walk(dirname):
+        for file in files:
+            if file.endswith(file_ext):
+                yield os.path.join(path, file)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
+    parser.add_argument('-r', '--recursive', action='store_true')
     parser.add_argument('--py35-plus', action='store_true')
     parser.add_argument('--py36-plus', action='store_true')
     args = parser.parse_args(argv)
@@ -393,8 +402,13 @@ def main(argv=None):
     if args.py36_plus:
         args.py35_plus = True
 
+    if args.recursive:
+        filenames = [f for d in args.filenames for f in files_from_dir(d)]
+    else:
+        filenames = args.filenames
+
     ret = 0
-    for filename in args.filenames:
+    for filename in filenames:
         ret |= fix_file(filename, args)
     return ret
 
