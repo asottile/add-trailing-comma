@@ -64,6 +64,7 @@ class FindNodes(ast.NodeVisitor):
         self.funcs = {}
         self.literals = {}
         self.tuples = {}
+        self.imports = set()
 
     def _visit_literal(self, node, key='elts'):
         if getattr(node, key):
@@ -141,6 +142,10 @@ class FindNodes(ast.NodeVisitor):
             key = Offset(node.lineno, node.col_offset)
             self.funcs[key] = Func(node, has_starargs, arg_offsets)
 
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        self.imports.add(Offset(node.lineno, node.col_offset))
         self.generic_visit(node)
 
 
@@ -225,6 +230,18 @@ def _find_tuple(i, tokens):
         return
 
     return _find_simple(i, tokens)
+
+
+def _find_import(i, tokens):
+    # progress forwards until we find either a `(` or a newline
+    for i in range(i, len(tokens)):
+        token = tokens[i]
+        if token.name == 'NEWLINE':
+            return
+        elif token.name == 'OP' and token.src == '(':
+            return _find_simple(i, tokens)
+    else:
+        raise AssertionError('Past end?')
 
 
 def _fix_brace(fix_data, add_comma, tokens):
@@ -346,6 +363,11 @@ def _fix_src(contents_text, py35_plus, py36_plus):
         # Handle parenthesized things, unhug of tuples, and comprehensions
         elif token.src in START_BRACES:
             fixes.append((False, _find_simple(i, tokens)))
+        elif key in visitor.imports:
+            # some imports do not have parens
+            fix = _find_import(i, tokens)
+            if fix:
+                fixes.append((True, fix))
 
         for add_comma, fix_data in fixes:
             if fix_data is not None:

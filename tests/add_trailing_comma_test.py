@@ -684,6 +684,72 @@ def test_fix_trailing_brace(src, expected):
     assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
+@pytest.mark.parametrize(
+    'src',
+    (
+        'from os import path, makedirs\n',
+        'from os import (path, makedirs)\n',
+        'from os import (\n'
+        '    path,\n'
+        '    makedirs,\n'
+        ')',
+    ),
+)
+def test_fix_from_import_noop(src):
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
+
+
+@pytest.mark.parametrize(
+    ('src', 'expected'),
+    (
+        (
+            'from os import (\n'
+            '    makedirs,\n'
+            '    path\n'
+            ')',
+            'from os import (\n'
+            '    makedirs,\n'
+            '    path,\n'
+            ')',
+        ),
+        (
+            'from os import \\\n'
+            '   (\n'
+            '        path,\n'
+            '        makedirs\n'
+            '   )\n',
+            'from os import \\\n'
+            '   (\n'
+            '        path,\n'
+            '        makedirs,\n'
+            '   )\n',
+        ),
+        (
+            'from os import (\n'
+            '    makedirs,\n'
+            '    path,\n'
+            '    )',
+            'from os import (\n'
+            '    makedirs,\n'
+            '    path,\n'
+            ')',
+        ),
+        (
+            'if True:\n'
+            '    from os import (\n'
+            '        makedirs\n'
+            '    )',
+            'if True:\n'
+            '    from os import (\n'
+            '        makedirs,\n'
+            '    )',
+        ),
+    ),
+)
+def test_fix_from_import(src, expected):
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+
+
 def test_main_trivial():
     assert main(()) == 0
 

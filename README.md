@@ -148,6 +148,16 @@ following change:
 
 Note that this would cause a **`SyntaxError`** in earlier python versions.
 
+### trailing commas for `from` imports
+
+```diff
+ from os import (
+     path,
+-    makedirs
++    makedirs,
+ )
+```
+
 ### unhug trailing paren
 
 ```diff
