@@ -165,7 +165,8 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
      Base1,
 -    Base2
 +    Base2,
- ): pass
+ ):
+     pass
 ```
 
 ### unhug trailing paren
