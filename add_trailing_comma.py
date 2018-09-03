@@ -17,6 +17,7 @@ from tokenize_rt import UNIMPORTANT_WS
 Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
 Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
 Func = collections.namedtuple('Func', ('node', 'star_args', 'arg_offsets'))
+Class = collections.namedtuple('Class', ('node', 'star_args', 'arg_offsets'))
 Literal = collections.namedtuple('Literal', ('node', 'backtrack'))
 Literal.__new__.__defaults__ = (False,)
 Fix = collections.namedtuple('Fix', ('braces', 'multi_arg', 'initial_indent'))
@@ -65,6 +66,7 @@ class FindNodes(ast.NodeVisitor):
         self.literals = {}
         self.tuples = {}
         self.imports = set()
+        self.classes = {}
 
     def _visit_literal(self, node, key='elts'):
         if getattr(node, key):
@@ -146,6 +148,21 @@ class FindNodes(ast.NodeVisitor):
 
     def visit_ImportFrom(self, node):
         self.imports.add(Offset(node.lineno, node.col_offset))
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node):
+        # starargs are allowed in py3 class definitions, py35+ allows trailing
+        # commas.  py34 does not, but adding an option for this very obscure
+        # case seems not worth it.
+        has_starargs = False
+        args = list(node.bases)
+        args.extend(getattr(node, 'keywords', ()))  # py3 only
+        arg_offsets = {_to_offset(arg) for arg in args}
+
+        if arg_offsets:
+            key = Offset(node.lineno, node.col_offset)
+            self.classes[key] = Class(node, has_starargs, arg_offsets)
+
         self.generic_visit(node)
 
 
@@ -358,16 +375,19 @@ def _fix_src(contents_text, py35_plus, py36_plus):
             add_comma = not func.star_args or py36_plus
             # functions can be treated as calls
             fixes.append((add_comma, _find_call(func, i, tokens)))
+        elif key in visitor.classes:
+            # classes can be treated as calls
+            fixes.append((True, _find_call(visitor.classes[key], i, tokens)))
         elif key in visitor.literals:
             fixes.append((True, _find_simple(i, tokens)))
-        # Handle parenthesized things, unhug of tuples, and comprehensions
-        elif token.src in START_BRACES:
-            fixes.append((False, _find_simple(i, tokens)))
         elif key in visitor.imports:
             # some imports do not have parens
             fix = _find_import(i, tokens)
             if fix:
                 fixes.append((True, fix))
+        # Handle parenthesized things, unhug of tuples, and comprehensions
+        elif token.src in START_BRACES:
+            fixes.append((False, _find_simple(i, tokens)))
 
         for add_comma, fix_data in fixes:
             if fix_data is not None:
