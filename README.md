@@ -158,6 +158,16 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
  )
 ```
 
+### trailing comma for class definitions
+
+```diff
+ class C(
+     Base1,
+-    Base2
++    Base2,
+ ): pass
+```
+
 ### unhug trailing paren
 
 ```diff
