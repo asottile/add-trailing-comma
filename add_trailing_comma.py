@@ -8,13 +8,13 @@ import io
 import sys
 
 from tokenize_rt import ESCAPED_NL
+from tokenize_rt import Offset
 from tokenize_rt import src_to_tokens
 from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 from tokenize_rt import UNIMPORTANT_WS
 
 
-Offset = collections.namedtuple('Offset', ('line', 'utf8_byte_offset'))
 Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
 Func = collections.namedtuple('Func', ('node', 'star_args', 'arg_offsets'))
 Class = collections.namedtuple('Class', ('node', 'star_args', 'arg_offsets'))
@@ -70,8 +70,7 @@ class FindNodes(ast.NodeVisitor):
 
     def _visit_literal(self, node, key='elts'):
         if getattr(node, key):
-            key = Offset(node.lineno, node.col_offset)
-            self.literals[key] = Literal(node)
+            self.literals[_to_offset(node)] = Literal(node)
         self.generic_visit(node)
 
     visit_Set = visit_List = _visit_literal
@@ -81,9 +80,8 @@ class FindNodes(ast.NodeVisitor):
 
     def visit_Tuple(self, node):
         if node.elts:
-            key = Offset(node.lineno, node.col_offset)
             # tuples lie about offset -- tell the later machinery to backtrack
-            self.tuples[key] = Literal(node, backtrack=True)
+            self.tuples[_to_offset(node)] = Literal(node, backtrack=True)
         self.generic_visit(node)
 
     def visit_Call(self, node):
@@ -116,7 +114,7 @@ class FindNodes(ast.NodeVisitor):
         )
 
         if arg_offsets and not only_a_generator:
-            key = Offset(node.lineno, node.col_offset)
+            key = _to_offset(node)
             self.calls[key].append(Call(node, has_starargs, arg_offsets))
 
         self.generic_visit(node)
@@ -141,13 +139,13 @@ class FindNodes(ast.NodeVisitor):
         arg_offsets = {_to_offset(arg) for arg in args}
 
         if arg_offsets:
-            key = Offset(node.lineno, node.col_offset)
+            key = _to_offset(node)
             self.funcs[key] = Func(node, has_starargs, arg_offsets)
 
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
-        self.imports.add(Offset(node.lineno, node.col_offset))
+        self.imports.add(_to_offset(node))
         self.generic_visit(node)
 
     def visit_ClassDef(self, node):
@@ -160,7 +158,7 @@ class FindNodes(ast.NodeVisitor):
         arg_offsets = {_to_offset(arg) for arg in args}
 
         if arg_offsets:
-            key = Offset(node.lineno, node.col_offset)
+            key = _to_offset(node)
             self.classes[key] = Class(node, has_starargs, arg_offsets)
 
         self.generic_visit(node)
@@ -362,25 +360,25 @@ def _fix_src(contents_text, py35_plus, py36_plus):
         # DEDENT is a zero length token
         if not token.src:
             continue
-        key = Offset(token.line, token.utf8_byte_offset)
 
         fixes = []
-        if key in visitor.calls:
-            for call in visitor.calls[key]:
+        if token.offset in visitor.calls:
+            for call in visitor.calls[token.offset]:
                 # Only fix stararg calls if asked to
                 add_comma = not call.star_args or py35_plus
                 fixes.append((add_comma, _find_call(call, i, tokens)))
-        elif key in visitor.funcs:
-            func = visitor.funcs[key]
+        elif token.offset in visitor.funcs:
+            func = visitor.funcs[token.offset]
             add_comma = not func.star_args or py36_plus
             # functions can be treated as calls
             fixes.append((add_comma, _find_call(func, i, tokens)))
-        elif key in visitor.classes:
+        elif token.offset in visitor.classes:
             # classes can be treated as calls
-            fixes.append((True, _find_call(visitor.classes[key], i, tokens)))
-        elif key in visitor.literals:
+            cls = visitor.classes[token.offset]
+            fixes.append((True, _find_call(cls, i, tokens)))
+        elif token.offset in visitor.literals:
             fixes.append((True, _find_simple(i, tokens)))
-        elif key in visitor.imports:
+        elif token.offset in visitor.imports:
             # some imports do not have parens
             fix = _find_import(i, tokens)
             if fix:
@@ -396,7 +394,7 @@ def _fix_src(contents_text, py35_plus, py36_plus):
         # need to handle tuples afterwards as tuples report their starting
         # starting index as the first element, which may be one of the above
         # things.
-        if key in visitor.tuples:
+        if token.offset in visitor.tuples:
             fix_data = _find_tuple(i, tokens)
             if fix_data is not None:
                 _fix_brace(fix_data, True, tokens)
