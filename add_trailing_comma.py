@@ -15,31 +15,31 @@ from tokenize_rt import tokens_to_src
 from tokenize_rt import UNIMPORTANT_WS
 
 
-Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
-Func = collections.namedtuple('Func', ('node', 'star_args', 'arg_offsets'))
-Class = collections.namedtuple('Class', ('node', 'star_args', 'arg_offsets'))
-Literal = collections.namedtuple('Literal', ('node', 'backtrack'))
+Call = collections.namedtuple("Call", ("node", "star_args", "arg_offsets"))
+Func = collections.namedtuple("Func", ("node", "star_args", "arg_offsets"))
+Class = collections.namedtuple("Class", ("node", "star_args", "arg_offsets"))
+Literal = collections.namedtuple("Literal", ("node", "backtrack"))
 Literal.__new__.__defaults__ = (False,)
-Fix = collections.namedtuple('Fix', ('braces', 'multi_arg', 'initial_indent'))
+Fix = collections.namedtuple("Fix", ("braces", "multi_arg", "initial_indent"))
 
-NEWLINES = frozenset((ESCAPED_NL, 'NEWLINE', 'NL'))
-NON_CODING_TOKENS = frozenset(('COMMENT', ESCAPED_NL, 'NL', UNIMPORTANT_WS))
-INDENT_TOKENS = frozenset(('INDENT', UNIMPORTANT_WS))
-START_BRACES = frozenset(('(', '{', '['))
-END_BRACES = frozenset((')', '}', ']'))
+NEWLINES = frozenset((ESCAPED_NL, "NEWLINE", "NL"))
+NON_CODING_TOKENS = frozenset(("COMMENT", ESCAPED_NL, "NL", UNIMPORTANT_WS))
+INDENT_TOKENS = frozenset(("INDENT", UNIMPORTANT_WS))
+START_BRACES = frozenset(("(", "{", "["))
+END_BRACES = frozenset((")", "}", "]"))
 
 
 def ast_parse(contents_text):
-    return ast.parse(contents_text.encode('UTF-8'))
+    return ast.parse(contents_text.encode("UTF-8"))
 
 
 def _to_offset(node):
     candidates = [node]
     while candidates:
         candidate = candidates.pop()
-        if hasattr(candidate, 'lineno'):
+        if hasattr(candidate, "lineno"):
             return Offset(candidate.lineno, candidate.col_offset)
-        elif hasattr(candidate, '_fields'):  # pragma: no cover (PY35+)
+        elif hasattr(candidate, "_fields"):  # pragma: no cover (PY35+)
             for field in reversed(candidate._fields):
                 candidates.append(getattr(candidate, field))
     else:
@@ -47,9 +47,13 @@ def _to_offset(node):
 
 
 if sys.version_info < (3, 5):  # pragma: no cover (<PY35)
+
     def _is_star_arg(node):
         return False
+
+
 else:  # pragma: no cover (PY35+)
+
     def _is_star_arg(node):
         return isinstance(node, ast.Starred)
 
@@ -68,7 +72,7 @@ class FindNodes(ast.NodeVisitor):
         self.imports = set()
         self.classes = {}
 
-    def _visit_literal(self, node, key='elts'):
+    def _visit_literal(self, node, key="elts"):
         if getattr(node, key):
             self.literals[_to_offset(node)] = Literal(node)
         self.generic_visit(node)
@@ -76,7 +80,7 @@ class FindNodes(ast.NodeVisitor):
     visit_Set = visit_List = _visit_literal
 
     def visit_Dict(self, node):
-        self._visit_literal(node, key='values')
+        self._visit_literal(node, key="values")
 
     def visit_Tuple(self, node):
         if node.elts:
@@ -86,19 +90,18 @@ class FindNodes(ast.NodeVisitor):
 
     def visit_Call(self, node):
         argnodes = node.args + node.keywords
-        py2_starargs = getattr(node, 'starargs', None)
+        py2_starargs = getattr(node, "starargs", None)
         if py2_starargs:  # pragma: no cover (<PY35)
             argnodes.append(py2_starargs)
-        py2_kwargs = getattr(node, 'kwargs', None)
+        py2_kwargs = getattr(node, "kwargs", None)
         if py2_kwargs:  # pragma: no cover (<PY35)
             argnodes.append(py2_kwargs)
 
         arg_offsets = set()
         has_starargs = bool(py2_starargs or py2_kwargs)
         for argnode in argnodes:
-            if (
-                    _is_star_arg(argnode) or
-                    _is_star_star_kwarg(argnode)
+            if _is_star_arg(argnode) or _is_star_star_kwarg(
+                argnode
             ):  # pragma: no cover (PY35+)
                 has_starargs = True
 
@@ -109,8 +112,8 @@ class FindNodes(ast.NodeVisitor):
 
         # If the sole argument is a generator, don't add a trailing comma as
         # this breaks lib2to3 based tools
-        only_a_generator = (
-            len(argnodes) == 1 and isinstance(argnodes[0], ast.GeneratorExp)
+        only_a_generator = len(argnodes) == 1 and isinstance(
+            argnodes[0], ast.GeneratorExp
         )
 
         if arg_offsets and not only_a_generator:
@@ -131,7 +134,7 @@ class FindNodes(ast.NodeVisitor):
             if isinstance(node.args.kwarg, ast.AST):  # pragma: no cover (py3)
                 args.append(node.args.kwarg)
             has_starargs = True
-        py3_kwonlyargs = getattr(node.args, 'kwonlyargs', None)
+        py3_kwonlyargs = getattr(node.args, "kwonlyargs", None)
         if py3_kwonlyargs:  # pragma: no cover (py3)
             args.extend(py3_kwonlyargs)
             has_starargs = True
@@ -154,7 +157,7 @@ class FindNodes(ast.NodeVisitor):
         # case seems not worth it.
         has_starargs = False
         args = list(node.bases)
-        args.extend(getattr(node, 'keywords', ()))  # py3 only
+        args.extend(getattr(node, "keywords", ()))  # py3 only
         arg_offsets = {_to_offset(arg) for arg in args}
 
         if arg_offsets:
@@ -175,13 +178,13 @@ def _find_simple(first_brace, tokens):
         elif token.src in END_BRACES:
             brace_stack.pop()
 
-        if len(brace_stack) == 1 and token.src == ',':
+        if len(brace_stack) == 1 and token.src == ",":
             multi_arg = True
 
         if not brace_stack:
             break
     else:
-        raise AssertionError('Past end?')
+        raise AssertionError("Past end?")
 
     last_brace = i
 
@@ -218,18 +221,18 @@ def _find_call(call, i, tokens):
     paren_stack = []
     for i in range(i, len(tokens)):
         token = tokens[i]
-        if token.src == '(':
+        if token.src == "(":
             paren_stack.append(i)
         # the ast lies to us about the beginning of parenthesized functions.
         # See #3. (why we make sure there's something to pop here)
-        elif token.src == ')' and paren_stack:
+        elif token.src == ")" and paren_stack:
             paren_stack.pop()
 
         if (token.line, token.utf8_byte_offset) in call.arg_offsets:
             first_brace = paren_stack[0]
             break
     else:
-        raise AssertionError('Past end?')
+        raise AssertionError("Past end?")
 
     return _find_simple(first_brace, tokens)
 
@@ -241,7 +244,7 @@ def _find_tuple(i, tokens):
         i -= 1
     # Sometimes tuples don't even have a paren!
     # x = 1, 2, 3
-    if tokens[i].src != '(':
+    if tokens[i].src != "(":
         return
 
     return _find_simple(i, tokens)
@@ -251,12 +254,12 @@ def _find_import(i, tokens):
     # progress forwards until we find either a `(` or a newline
     for i in range(i, len(tokens)):
         token = tokens[i]
-        if token.name == 'NEWLINE':
+        if token.name == "NEWLINE":
             return
-        elif token.name == 'OP' and token.src == '(':
+        elif token.name == "OP" and token.src == "(":
             return _find_simple(i, tokens)
     else:
-        raise AssertionError('Past end?')
+        raise AssertionError("Past end?")
 
 
 def _fix_brace(fix_data, add_comma, tokens):
@@ -266,14 +269,15 @@ def _fix_brace(fix_data, add_comma, tokens):
     hug_open = tokens[first_brace + 1].name not in NON_CODING_TOKENS
     hug_close = tokens[last_brace - 1].name not in NON_CODING_TOKENS
     if (
-            # Don't unhug single element things with a multi-line component
-            # inside.
-            not fix_data.multi_arg and
-            hug_open and
-            tokens[last_brace - 1].src in END_BRACES or
-            # Don't unhug when containing a single token (such as a triple
-            # quoted string).
-            first_brace + 2 == last_brace
+        # Don't unhug single element things with a multi-line component
+        # inside.
+        not fix_data.multi_arg
+        and hug_open
+        and tokens[last_brace - 1].src in END_BRACES
+        or
+        # Don't unhug when containing a single token (such as a triple
+        # quoted string).
+        first_brace + 2 == last_brace
     ):
         hug_open = hug_close = False
 
@@ -281,8 +285,9 @@ def _fix_brace(fix_data, add_comma, tokens):
     if hug_open:
         new_indent = fix_data.initial_indent + 4
 
-        tokens[first_brace + 1:first_brace + 1] = [
-            Token('NL', '\n'), Token(UNIMPORTANT_WS, ' ' * new_indent),
+        tokens[first_brace + 1 : first_brace + 1] = [
+            Token("NL", "\n"),
+            Token(UNIMPORTANT_WS, " " * new_indent),
         ]
         last_brace += 2
 
@@ -291,7 +296,7 @@ def _fix_brace(fix_data, add_comma, tokens):
         indents = []
         insert_indents = []
         for i in range(first_brace + 3, last_brace):
-            if tokens[i - 1].name == 'NL' and tokens[i].name != 'NL':
+            if tokens[i - 1].name == "NL" and tokens[i].name != "NL":
                 if tokens[i].name != UNIMPORTANT_WS:
                     min_indent = 0
                     insert_indents.append(i)
@@ -305,16 +310,16 @@ def _fix_brace(fix_data, add_comma, tokens):
         for i in indents:
             oldlen = len(tokens[i].src)
             newlen = oldlen - min_indent + new_indent
-            tokens[i] = tokens[i]._replace(src=' ' * newlen)
+            tokens[i] = tokens[i]._replace(src=" " * newlen)
         for i in reversed(insert_indents):
-            tokens.insert(i, Token(UNIMPORTANT_WS, ' ' * new_indent))
+            tokens.insert(i, Token(UNIMPORTANT_WS, " " * new_indent))
             last_brace += 1
 
     # fix close hugging
     if hug_close:
         tokens[last_brace:last_brace] = [
-            Token('NL', '\n'),
-            Token(UNIMPORTANT_WS, ' ' * fix_data.initial_indent),
+            Token("NL", "\n"),
+            Token(UNIMPORTANT_WS, " " * fix_data.initial_indent),
         ]
         last_brace += 2
 
@@ -324,18 +329,18 @@ def _fix_brace(fix_data, add_comma, tokens):
         i -= 1
 
     # If we're not a hugging paren, we can insert a comma
-    if add_comma and tokens[i].src != ',' and i + 1 != last_brace:
-        tokens.insert(i + 1, Token('OP', ','))
+    if add_comma and tokens[i].src != "," and i + 1 != last_brace:
+        tokens.insert(i + 1, Token("OP", ","))
 
     # Fix trailing brace to match leading indentation
     back_1 = tokens[last_brace - 1]
     back_2 = tokens[last_brace - 2]
     if (
-            back_1.name == UNIMPORTANT_WS and
-            back_2.name == 'NL' and
-            len(back_1.src) != fix_data.initial_indent
+        back_1.name == UNIMPORTANT_WS
+        and back_2.name == "NL"
+        and len(back_1.src) != fix_data.initial_indent
     ):
-        new_indent = fix_data.initial_indent * ' '
+        new_indent = fix_data.initial_indent * " "
         tokens[last_brace - 1] = back_1._replace(src=new_indent)
 
 
@@ -403,20 +408,20 @@ def _fix_src(contents_text, py35_plus, py36_plus):
 
 
 def fix_file(filename, args):
-    with open(filename, 'rb') as f:
+    with open(filename, "rb") as f:
         contents_bytes = f.read()
 
     try:
-        contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
+        contents_text_orig = contents_text = contents_bytes.decode("UTF-8")
     except UnicodeDecodeError:
-        print('{} is non-utf-8 (not supported)'.format(filename))
+        print("{} is non-utf-8 (not supported)".format(filename))
         return 1
 
     contents_text = _fix_src(contents_text, args.py35_plus, args.py36_plus)
 
     if contents_text != contents_text_orig:
-        print('Rewriting {}'.format(filename))
-        with io.open(filename, 'w', newline='', encoding='UTF-8') as f:
+        print("Rewriting {}".format(filename))
+        with io.open(filename, "w", newline="", encoding="UTF-8") as f:
             f.write(contents_text)
         return 1
 
@@ -425,9 +430,9 @@ def fix_file(filename, args):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('filenames', nargs='*')
-    parser.add_argument('--py35-plus', action='store_true')
-    parser.add_argument('--py36-plus', action='store_true')
+    parser.add_argument("filenames", nargs="*")
+    parser.add_argument("--py35-plus", action="store_true")
+    parser.add_argument("--py36-plus", action="store_true")
     args = parser.parse_args(argv)
 
     if args.py36_plus:
@@ -439,5 +444,5 @@ def main(argv=None):
     return ret
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     exit(main())

@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.org/asottile/add-trailing-comma.svg?branch=master)](https://travis-ci.org/asottile/add-trailing-comma)
 [![Coverage Status](https://coveralls.io/repos/github/asottile/add-trailing-comma/badge.svg?branch=master)](https://coveralls.io/github/asottile/add-trailing-comma?branch=master)
 [![Build status](https://ci.appveyor.com/api/projects/status/our2mhmqbx3pgoi2/branch/master?svg=true)](https://ci.appveyor.com/project/asottile/add-trailing-comma/branch/master)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
 add-trailing-comma
 =========
