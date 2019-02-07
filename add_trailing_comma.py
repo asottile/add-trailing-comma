@@ -18,8 +18,7 @@ from tokenize_rt import UNIMPORTANT_WS
 Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
 Func = collections.namedtuple('Func', ('node', 'star_args', 'arg_offsets'))
 Class = collections.namedtuple('Class', ('node', 'star_args', 'arg_offsets'))
-Literal = collections.namedtuple('Literal', ('node', 'backtrack'))
-Literal.__new__.__defaults__ = (False,)
+Literal = collections.namedtuple('Literal', ('node',))
 Fix = collections.namedtuple('Fix', ('braces', 'multi_arg', 'initial_indent'))
 
 NEWLINES = frozenset((ESCAPED_NL, 'NEWLINE', 'NL'))
@@ -80,8 +79,11 @@ class FindNodes(ast.NodeVisitor):
 
     def visit_Tuple(self, node):
         if node.elts:
-            # tuples lie about offset -- tell the later machinery to backtrack
-            self.tuples[_to_offset(node)] = Literal(node, backtrack=True)
+            # in < py38 tuples lie about offset -- later we must backtrack
+            if sys.version_info < (3, 8):  # pragma: no cover (<py38)
+                self.tuples[_to_offset(node)] = Literal(node)
+            else:  # pragma: no cover (py38+)
+                self.literals[_to_offset(node)] = Literal(node)
         self.generic_visit(node)
 
     def visit_Call(self, node):
@@ -234,7 +236,7 @@ def _find_call(call, i, tokens):
     return _find_simple(first_brace, tokens)
 
 
-def _find_tuple(i, tokens):
+def _find_tuple(i, tokens):  # pragma: no cover (<py38)
     # tuples are evil, we need to backtrack to find the opening paren
     i -= 1
     while tokens[i].name in NON_CODING_TOKENS:
@@ -376,7 +378,7 @@ def _fix_src(contents_text, py35_plus, py36_plus):
             # classes can be treated as calls
             cls = visitor.classes[token.offset]
             fixes.append((True, _find_call(cls, i, tokens)))
-        elif token.offset in visitor.literals:
+        elif token.offset in visitor.literals and token.src in START_BRACES:
             fixes.append((True, _find_simple(i, tokens)))
         elif token.offset in visitor.imports:
             # some imports do not have parens
@@ -394,7 +396,7 @@ def _fix_src(contents_text, py35_plus, py36_plus):
         # need to handle tuples afterwards as tuples report their starting
         # starting index as the first element, which may be one of the above
         # things.
-        if token.offset in visitor.tuples:
+        if token.offset in visitor.tuples:  # pragma: no cover (<py38)
             fix_data = _find_tuple(i, tokens)
             if fix_data is not None:
                 _fix_brace(fix_data, True, tokens)
