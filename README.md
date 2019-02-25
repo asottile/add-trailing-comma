@@ -1,9 +1,8 @@
-[![Build Status](https://travis-ci.org/asottile/add-trailing-comma.svg?branch=master)](https://travis-ci.org/asottile/add-trailing-comma)
-[![Coverage Status](https://coveralls.io/repos/github/asottile/add-trailing-comma/badge.svg?branch=master)](https://coveralls.io/github/asottile/add-trailing-comma?branch=master)
 [![Build Status](https://dev.azure.com/asottile/asottile/_apis/build/status/asottile.add-trailing-comma?branchName=master)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=3&branchName=master)
+[![Azure DevOps coverage](https://img.shields.io/azure-devops/coverage/asottile/asottile/3/master.svg)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=3&branchName=master)
 
 add-trailing-comma
-=========
+==================
 
 A tool (and pre-commit hook) to automatically add trailing commas to calls and
 literals.
@@ -11,7 +10,6 @@ literals.
 ## Installation
 
 `pip install add-trailing-comma`
-
 
 ## As a pre-commit hook
 
