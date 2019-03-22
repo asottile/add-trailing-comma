@@ -271,7 +271,7 @@ def _fix_brace(fix_data, add_comma, tokens):
             # Don't unhug single element things with a multi-line component
             # inside.
             not fix_data.multi_arg and
-            hug_open and
+            tokens[first_brace + 1].src in START_BRACES and
             tokens[last_brace - 1].src in END_BRACES or
             # Don't unhug when containing a single token (such as a triple
             # quoted string).

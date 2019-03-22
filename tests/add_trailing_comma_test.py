@@ -594,6 +594,17 @@ def test_noop_unhugs(src):
             '    )\n'
             ']',
         ),
+        pytest.param(
+            'x = [x\n'
+            '     for x in y()]\n',
+
+            'x = [\n'
+            '    x\n'
+            '    for x in y()\n'
+            ']\n',
+
+            id='#42: listcomp unhug ends in brace',
+        ),
     ),
 )
 def test_fix_unhugs(src, expected):
