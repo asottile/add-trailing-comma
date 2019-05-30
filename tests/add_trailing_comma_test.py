@@ -3,8 +3,10 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import ast
+import io
 import sys
 
+import mock
 import pytest
 
 from add_trailing_comma import _fix_src
@@ -846,8 +848,8 @@ def test_main_changes_a_file(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write('x(\n    1\n)\n')
     assert main((f.strpath,)) == 1
-    out, _ = capsys.readouterr()
-    assert out == 'Rewriting {}\n'.format(f.strpath)
+    _, err = capsys.readouterr()
+    assert err == 'Rewriting {}\n'.format(f.strpath)
     assert f.read() == 'x(\n    1,\n)\n'
 
 
@@ -855,8 +857,8 @@ def test_main_preserves_line_endings(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write_binary(b'x(\r\n    1\r\n)\r\n')
     assert main((f.strpath,)) == 1
-    out, _ = capsys.readouterr()
-    assert out == 'Rewriting {}\n'.format(f.strpath)
+    _, err = capsys.readouterr()
+    assert err == 'Rewriting {}\n'.format(f.strpath)
     assert f.read_binary() == b'x(\r\n    1,\r\n)\r\n'
 
 
@@ -870,8 +872,8 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write_binary('# -*- coding: cp1252 -*-\nx = €\n'.encode('cp1252'))
     assert main((f.strpath,)) == 1
-    out, _ = capsys.readouterr()
-    assert out == '{} is non-utf-8 (not supported)\n'.format(f.strpath)
+    _, err = capsys.readouterr()
+    assert err == '{} is non-utf-8 (not supported)\n'.format(f.strpath)
 
 
 def test_main_py35_plus_argument_star_args(tmpdir):
@@ -911,3 +913,23 @@ def test_main_py36_plus_function_trailing_commas(
     assert f.read() == 'def f(\n    **kwargs\n): pass\n'
     assert main((f.strpath, '--py36-plus')) == 1
     assert f.read() == 'def f(\n    **kwargs,\n): pass\n'
+
+
+def test_main_stdin_no_changes(capsys):
+    with mock.patch.object(
+        sys, 'stdin',
+        io.TextIOWrapper(io.BytesIO(b'x = 5\n'), 'UTF-8'),
+    ):
+        assert main(('-',)) == 0
+    out, err = capsys.readouterr()
+    assert out == 'x = 5\n'
+
+
+def test_main_stdin_with_changes(capsys):
+    with mock.patch.object(
+        sys, 'stdin',
+        io.TextIOWrapper(io.BytesIO(b'x(\n    1\n)\n'), 'UTF-8'),
+    ):
+        assert main(('-',)) == 1
+    out, err = capsys.readouterr()
+    assert out == 'x(\n    1,\n)\n'
