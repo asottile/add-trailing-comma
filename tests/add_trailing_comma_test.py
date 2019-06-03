@@ -916,20 +916,16 @@ def test_main_py36_plus_function_trailing_commas(
 
 
 def test_main_stdin_no_changes(capsys):
-    with mock.patch.object(
-        sys, 'stdin',
-        io.TextIOWrapper(io.BytesIO(b'x = 5\n'), 'UTF-8'),
-    ):
+    stdin = io.TextIOWrapper(io.BytesIO(b'x = 5\n'), 'UTF-8')
+    with mock.patch.object(sys, 'stdin', stdin):
         assert main(('-',)) == 0
     out, err = capsys.readouterr()
     assert out == 'x = 5\n'
 
 
 def test_main_stdin_with_changes(capsys):
-    with mock.patch.object(
-        sys, 'stdin',
-        io.TextIOWrapper(io.BytesIO(b'x(\n    1\n)\n'), 'UTF-8'),
-    ):
+    stdin = io.TextIOWrapper(io.BytesIO(b'x(\n    1\n)\n'), 'UTF-8')
+    with mock.patch.object(sys, 'stdin', stdin):
         assert main(('-',)) == 1
     out, err = capsys.readouterr()
     assert out == 'x(\n    1,\n)\n'
