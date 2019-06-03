@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from __future__ import print_function
 from __future__ import unicode_literals
 
 import argparse
@@ -405,24 +406,29 @@ def _fix_src(contents_text, py35_plus, py36_plus):
 
 
 def fix_file(filename, args):
-    with open(filename, 'rb') as f:
-        contents_bytes = f.read()
+    if filename == '-':
+        contents_bytes = getattr(sys.stdin, 'buffer', sys.stdin).read()
+    else:
+        with open(filename, 'rb') as f:
+            contents_bytes = f.read()
 
     try:
         contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
     except UnicodeDecodeError:
-        print('{} is non-utf-8 (not supported)'.format(filename))
+        msg = '{} is non-utf-8 (not supported)'.format(filename)
+        print(msg, file=sys.stderr)
         return 1
 
     contents_text = _fix_src(contents_text, args.py35_plus, args.py36_plus)
 
-    if contents_text != contents_text_orig:
-        print('Rewriting {}'.format(filename))
+    if filename == '-':
+        print(contents_text, end='')
+    elif contents_text != contents_text_orig:
+        print('Rewriting {}'.format(filename), file=sys.stderr)
         with io.open(filename, 'w', newline='', encoding='UTF-8') as f:
             f.write(contents_text)
-        return 1
 
-    return 0
+    return contents_text != contents_text_orig
 
 
 def main(argv=None):
