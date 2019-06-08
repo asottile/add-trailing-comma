@@ -263,6 +263,8 @@ def _find_import(i, tokens):
 
 
 def _fix_brace(fix_data, add_comma, tokens):
+    if fix_data is None:
+        return
     first_brace, last_brace = fix_data.braces
 
     # Figure out if either of the braces are "hugging"
@@ -364,43 +366,34 @@ def _fix_src(contents_text, py35_plus, py36_plus):
         if not token.src:
             continue
 
-        fixes = []
         if token.offset in visitor.calls:
             for call in visitor.calls[token.offset]:
                 # Only fix stararg calls if asked to
                 add_comma = not call.star_args or py35_plus
-                fixes.append((add_comma, _find_call(call, i, tokens)))
+                _fix_brace(_find_call(call, i, tokens), add_comma, tokens)
         elif token.offset in visitor.funcs:
             func = visitor.funcs[token.offset]
             add_comma = not func.star_args or py36_plus
             # functions can be treated as calls
-            fixes.append((add_comma, _find_call(func, i, tokens)))
+            _fix_brace(_find_call(func, i, tokens), add_comma, tokens)
         elif token.offset in visitor.classes:
             # classes can be treated as calls
             cls = visitor.classes[token.offset]
-            fixes.append((True, _find_call(cls, i, tokens)))
+            _fix_brace(_find_call(cls, i, tokens), True, tokens)
         elif token.offset in visitor.literals and token.src in START_BRACES:
-            fixes.append((True, _find_simple(i, tokens)))
+            _fix_brace(_find_simple(i, tokens), True, tokens)
         elif token.offset in visitor.imports:
             # some imports do not have parens
-            fix = _find_import(i, tokens)
-            if fix:
-                fixes.append((True, fix))
+            _fix_brace(_find_import(i, tokens), True, tokens)
         # Handle parenthesized things, unhug of tuples, and comprehensions
         elif token.src in START_BRACES:
-            fixes.append((False, _find_simple(i, tokens)))
-
-        for add_comma, fix_data in fixes:
-            if fix_data is not None:
-                _fix_brace(fix_data, add_comma, tokens)
+            _fix_brace(_find_simple(i, tokens), False, tokens)
 
         # need to handle tuples afterwards as tuples report their starting
         # starting index as the first element, which may be one of the above
         # things.
         if token.offset in visitor.tuples:  # pragma: no cover (<py38)
-            fix_data = _find_tuple(i, tokens)
-            if fix_data is not None:
-                _fix_brace(fix_data, True, tokens)
+            _fix_brace(_find_tuple(i, tokens), True, tokens)
 
     return tokens_to_src(tokens)
 
