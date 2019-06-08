@@ -198,3 +198,14 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
 -    ]
 +]
 ```
+
+### remove unnecessary commas
+
+yes yes, I realize the tool is called `add-trailing-comma` :laughing:
+
+```diff
+-[1, 2, 3,]
+-[1, 2, 3, ]
++[1, 2, 3]
++[1, 2, 3]
+```

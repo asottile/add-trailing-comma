@@ -19,8 +19,9 @@ from tokenize_rt import UNIMPORTANT_WS
 Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
 Func = collections.namedtuple('Func', ('node', 'star_args', 'arg_offsets'))
 Class = collections.namedtuple('Class', ('node', 'star_args', 'arg_offsets'))
-Literal = collections.namedtuple('Literal', ('node',))
-Fix = collections.namedtuple('Fix', ('braces', 'multi_arg', 'initial_indent'))
+Fix = collections.namedtuple(
+    'Fix', ('braces', 'multi_arg', 'remove_comma', 'initial_indent'),
+)
 
 NEWLINES = frozenset((ESCAPED_NL, 'NEWLINE', 'NL'))
 NON_CODING_TOKENS = frozenset(('COMMENT', ESCAPED_NL, 'NL', UNIMPORTANT_WS))
@@ -70,7 +71,7 @@ class FindNodes(ast.NodeVisitor):
 
     def _visit_literal(self, node, key='elts'):
         if getattr(node, key):
-            self.literals[_to_offset(node)] = Literal(node)
+            self.literals[_to_offset(node)] = node
         self.generic_visit(node)
 
     visit_Set = visit_List = _visit_literal
@@ -82,9 +83,9 @@ class FindNodes(ast.NodeVisitor):
         if node.elts:
             # in < py38 tuples lie about offset -- later we must backtrack
             if sys.version_info < (3, 8):  # pragma: no cover (<py38)
-                self.tuples[_to_offset(node)] = Literal(node)
+                self.tuples[_to_offset(node)] = node
             else:  # pragma: no cover (py38+)
-                self.literals[_to_offset(node)] = Literal(node)
+                self.literals[_to_offset(node)] = node
         self.generic_visit(node)
 
     def visit_Call(self, node):
@@ -189,8 +190,18 @@ def _find_simple(first_brace, tokens):
     last_brace = i
 
     # Check if we're actually multi-line
-    if tokens[first_brace].line == tokens[last_brace].line:
-        return
+    if (
+            # we were single line, but with an extra comma and or whitespace
+            tokens[first_brace].line == tokens[last_brace].line and (
+                tokens[last_brace - 1].name == UNIMPORTANT_WS or
+                tokens[last_brace - 1].src == ','
+            )
+    ):
+        remove_comma = True
+    elif tokens[first_brace].line == tokens[last_brace].line:
+        return None
+    else:
+        remove_comma = False
 
     # determine the initial indentation
     i = first_brace
@@ -202,7 +213,12 @@ def _find_simple(first_brace, tokens):
     else:
         initial_indent = 0
 
-    return Fix((first_brace, last_brace), multi_arg, initial_indent)
+    return Fix(
+        (first_brace, last_brace),
+        multi_arg=multi_arg,
+        remove_comma=remove_comma,
+        initial_indent=initial_indent,
+    )
 
 
 def _find_call(call, i, tokens):
@@ -262,7 +278,7 @@ def _find_import(i, tokens):
         raise AssertionError('Past end?')
 
 
-def _fix_brace(fix_data, add_comma, tokens):
+def _fix_brace(tokens, fix_data, add_comma, remove_comma):
     if fix_data is None:
         return
     first_brace, last_brace = fix_data.braces
@@ -278,7 +294,9 @@ def _fix_brace(fix_data, add_comma, tokens):
             tokens[last_brace - 1].src in END_BRACES or
             # Don't unhug when containing a single token (such as a triple
             # quoted string).
-            first_brace + 2 == last_brace
+            first_brace + 2 == last_brace or
+            # don't unhug if it is a single line
+            fix_data.remove_comma
     ):
         hug_open = hug_close = False
 
@@ -343,6 +361,18 @@ def _fix_brace(fix_data, add_comma, tokens):
         new_indent = fix_data.initial_indent * ' '
         tokens[last_brace - 1] = back_1._replace(src=new_indent)
 
+    if fix_data.remove_comma:
+        start = last_brace
+        if tokens[start - 1].name == UNIMPORTANT_WS:
+            start -= 1
+        if remove_comma and tokens[start - 1].src == ',':
+            start -= 1
+        del tokens[start:last_brace]
+
+
+def _one_el_tuple(node):
+    return isinstance(node, ast.Tuple) and len(node.elts) == 1
+
 
 def _changing_list(lst):
     i = 0
@@ -370,30 +400,58 @@ def _fix_src(contents_text, py35_plus, py36_plus):
             for call in visitor.calls[token.offset]:
                 # Only fix stararg calls if asked to
                 add_comma = not call.star_args or py35_plus
-                _fix_brace(_find_call(call, i, tokens), add_comma, tokens)
+                _fix_brace(
+                    tokens, _find_call(call, i, tokens),
+                    add_comma=add_comma,
+                    remove_comma=True,
+                )
         elif token.offset in visitor.funcs:
             func = visitor.funcs[token.offset]
             add_comma = not func.star_args or py36_plus
             # functions can be treated as calls
-            _fix_brace(_find_call(func, i, tokens), add_comma, tokens)
+            _fix_brace(
+                tokens, _find_call(func, i, tokens),
+                add_comma=add_comma,
+                remove_comma=True,
+            )
         elif token.offset in visitor.classes:
             # classes can be treated as calls
             cls = visitor.classes[token.offset]
-            _fix_brace(_find_call(cls, i, tokens), True, tokens)
+            _fix_brace(
+                tokens, _find_call(cls, i, tokens),
+                add_comma=True,
+                remove_comma=True,
+            )
         elif token.offset in visitor.literals and token.src in START_BRACES:
-            _fix_brace(_find_simple(i, tokens), True, tokens)
+            _fix_brace(
+                tokens, _find_simple(i, tokens),
+                add_comma=True,
+                remove_comma=not _one_el_tuple(visitor.literals[token.offset]),
+            )
         elif token.offset in visitor.imports:
             # some imports do not have parens
-            _fix_brace(_find_import(i, tokens), True, tokens)
+            _fix_brace(
+                tokens, _find_import(i, tokens),
+                add_comma=True,
+                remove_comma=True,
+            )
         # Handle parenthesized things, unhug of tuples, and comprehensions
         elif token.src in START_BRACES:
-            _fix_brace(_find_simple(i, tokens), False, tokens)
+            _fix_brace(
+                tokens, _find_simple(i, tokens),
+                add_comma=False,
+                remove_comma=False,
+            )
 
         # need to handle tuples afterwards as tuples report their starting
         # starting index as the first element, which may be one of the above
         # things.
         if token.offset in visitor.tuples:  # pragma: no cover (<py38)
-            _fix_brace(_find_tuple(i, tokens), True, tokens)
+            _fix_brace(
+                tokens, _find_tuple(i, tokens),
+                add_comma=True,
+                remove_comma=not _one_el_tuple(visitor.tuples[token.offset]),
+            )
 
     return tokens_to_src(tokens)
 
