@@ -7,6 +7,7 @@ import ast
 import collections
 import io
 import sys
+import warnings
 
 from tokenize_rt import ESCAPED_NL
 from tokenize_rt import Offset
@@ -30,7 +31,9 @@ END_BRACES = frozenset((')', '}', ']'))
 
 
 def ast_parse(contents_text):
-    return ast.parse(contents_text.encode('UTF-8'))
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        return ast.parse(contents_text.encode('UTF-8'))
 
 
 def _to_offset(node):
