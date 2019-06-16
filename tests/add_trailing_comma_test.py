@@ -126,18 +126,6 @@ def test_py35_plus_rewrite():
             '    x,\n'
             ')',
         ),
-        # Regression test for #23
-        (
-            '(\n'
-            '    {k: v},\n'
-            '    ()\n'
-            ')',
-
-            '(\n'
-            '    {k: v},\n'
-            '    (),\n'
-            ')',
-        ),
     ),
 )
 def test_fixes_calls(src, expected):
@@ -200,6 +188,18 @@ def test_noop_literals(src):
             'x = (\n'
             '    1,\n'
             '    2,\n'
+            ')',
+        ),
+        # Regression test for #23
+        (
+            '(\n'
+            '    {k: v},\n'
+            '    ()\n'
+            ')',
+
+            '(\n'
+            '    {k: v},\n'
+            '    (),\n'
             ')',
         ),
     ),
@@ -649,6 +649,14 @@ def test_fix_unhugs_py3_only(src, expected):
         '    bar(\n'
         '        5,\n'
         '    )',
+        # Regression test for #79
+        'if True:\n'
+        '    if True:\n'
+        '        pass\n'
+        '\n'
+        '    x = (\n'
+        '    1,\n'
+        '    )\n',
     ),
 )
 def test_noop_trailing_brace(src):

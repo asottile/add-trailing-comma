@@ -10,6 +10,7 @@ import sys
 import warnings
 
 from tokenize_rt import ESCAPED_NL
+from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
 from tokenize_rt import src_to_tokens
 from tokenize_rt import Token
@@ -25,7 +26,6 @@ Fix = collections.namedtuple(
 )
 
 NEWLINES = frozenset((ESCAPED_NL, 'NEWLINE', 'NL'))
-NON_CODING_TOKENS = frozenset(('COMMENT', ESCAPED_NL, 'NL', UNIMPORTANT_WS))
 INDENT_TOKENS = frozenset(('INDENT', UNIMPORTANT_WS))
 START_BRACES = frozenset(('(', '{', '['))
 END_BRACES = frozenset((')', '}', ']'))
