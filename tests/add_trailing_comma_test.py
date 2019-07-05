@@ -958,3 +958,11 @@ def test_main_stdin_with_changes(capsys):
         assert main(('-',)) == 1
     out, err = capsys.readouterr()
     assert out == 'x(\n    1,\n)\n'
+
+
+def test_main_exit_zero_even_if_changed(tmpdir):
+    f = tmpdir.join('t.py')
+    f.write('x(\n    1\n)')
+    assert not main((str(f), '--exit-zero-even-if-changed'))
+    assert f.read() == 'x(\n    1,\n)'
+    assert not main((str(f), '--exit-zero-even-if-changed'))

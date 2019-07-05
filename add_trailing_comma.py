@@ -517,13 +517,17 @@ def fix_file(filename, args):
         with io.open(filename, 'w', newline='', encoding='UTF-8') as f:
             f.write(contents_text)
 
-    return contents_text != contents_text_orig
+    if args.exit_zero_even_if_changed:
+        return 0
+    else:
+        return contents_text != contents_text_orig
 
 
 def main(argv=None):
     # type: (Optional[Sequence[str]]) -> int
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
+    parser.add_argument('--exit-zero-even-if-changed', action='store_true')
     parser.add_argument('--py35-plus', action='store_true')
     parser.add_argument('--py36-plus', action='store_true')
     args = parser.parse_args(argv)
