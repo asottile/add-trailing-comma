@@ -358,11 +358,12 @@ def _fix_brace(tokens, fix_data, add_comma, remove_comma):
                         min_indent = len(tokens[i].src)
                     indents.append(i)
 
-        assert min_indent is not None
-        for i in indents:
-            oldlen = len(tokens[i].src)
-            newlen = oldlen - min_indent + new_indent
-            tokens[i] = tokens[i]._replace(src=' ' * newlen)
+        if indents:
+            assert min_indent is not None
+            for i in indents:
+                oldlen = len(tokens[i].src)
+                newlen = oldlen - min_indent + new_indent
+                tokens[i] = tokens[i]._replace(src=' ' * newlen)
         for i in reversed(insert_indents):
             tokens.insert(i, Token(UNIMPORTANT_WS, ' ' * new_indent))
             last_brace += 1

@@ -384,6 +384,14 @@ def test_noop_unhugs(src):
             ')',
         ),
         (
+            'f(a\n'
+            ')',
+
+            'f(\n'
+            '    a,\n'
+            ')',
+        ),
+        (
             'f(a,\n'
             '  b,\n'
             ')',
