@@ -494,8 +494,8 @@ def _fix_src(contents_text, py35_plus, py36_plus):
     return tokens_to_src(tokens)
 
 
-def fix_file(filename, args):
-    # type: (str, argparse.Namespace) -> int
+def fix_file(filename, py35_plus=False, py36_plus=False, exit_zero_even_if_changed=False):
+    # type: (str, bool, bool, bool) -> int
     if filename == '-':
         contents_bytes = getattr(sys.stdin, 'buffer', sys.stdin).read()
     else:
@@ -509,7 +509,7 @@ def fix_file(filename, args):
         print(msg, file=sys.stderr)
         return 1
 
-    contents_text = _fix_src(contents_text, args.py35_plus, args.py36_plus)
+    contents_text = _fix_src(contents_text, py35_plus, py36_plus)
 
     if filename == '-':
         print(contents_text, end='')
@@ -518,7 +518,7 @@ def fix_file(filename, args):
         with io.open(filename, 'w', newline='', encoding='UTF-8') as f:
             f.write(contents_text)
 
-    if args.exit_zero_even_if_changed:
+    if exit_zero_even_if_changed:
         return 0
     else:
         return contents_text != contents_text_orig
@@ -538,7 +538,12 @@ def main(argv=None):
 
     ret = 0
     for filename in args.filenames:
-        ret |= fix_file(filename, args)
+        ret |= fix_file(
+            filename, 
+            args.py35_plus, 
+            args.py36_plus, 
+            args.exit_zero_even_if_changed,
+        )
     return ret
 
 
