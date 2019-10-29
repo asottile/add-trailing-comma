@@ -145,6 +145,7 @@ def test_fixes_calls(src, expected):
         'if True:\n'
         '    pass\n'
         '[x] = {y}',
+        pytest.param('x[1, 2, 3, 4]', id='multi-slice'),
     ),
 )
 def test_noop_literals(src):
@@ -203,6 +204,42 @@ def test_noop_literals(src):
             '    {k: v},\n'
             '    (),\n'
             ')',
+        ),
+        pytest.param(
+            'x[\n'
+            '    1,\n'
+            '    2,\n'
+            '    3\n'
+            ']',
+            'x[\n'
+            '    1,\n'
+            '    2,\n'
+            '    3,\n'
+            ']',
+            id='multi-line multi-slice adds comma at end',
+        ),
+        pytest.param(
+            'x[1, 2, 3, ]',
+            'x[1, 2, 3]',
+            id='single line with trailing comma with space removes comma',
+        ),
+        pytest.param(
+            'x[1, 2, 3,]',
+            'x[1, 2, 3]',
+            id='single line with trailing comma with no space removes comma',
+        ),
+        pytest.param(
+            'x[\n'
+            '    (1,),\n'
+            '    2,\n'
+            '    3\n'
+            ']',
+            'x[\n'
+            '    (1,),\n'
+            '    2,\n'
+            '    3,\n'
+            ']',
+            id='nested tuple',
         ),
     ),
 )
