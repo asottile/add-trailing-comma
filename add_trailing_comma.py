@@ -103,8 +103,10 @@ class FindNodes(ast.NodeVisitor):
     def visit_Tuple(self, node):
         # type: (ast.Tuple) -> None
         if node.elts:
+            if _to_offset(node) == _to_offset(node.elts[0]):
+                self.tuples[_to_offset(node)] = node
             # in < py38 tuples lie about offset -- later we must backtrack
-            if sys.version_info < (3, 8):  # pragma: no cover (<py38)
+            elif sys.version_info < (3, 8):  # pragma: no cover (<py38)
                 self.tuples[_to_offset(node)] = node
             else:  # pragma: no cover (py38+)
                 self.literals[_to_offset(node)] = node
@@ -283,7 +285,7 @@ def _find_call(call, i, tokens):
     return _find_simple(first_brace, tokens)
 
 
-def _find_tuple(i, tokens):  # pragma: no cover (<py38)
+def _find_tuple(i, tokens):
     # type: (int, Sequence[Token]) -> Optional[Fix]
     # tuples are evil, we need to backtrack to find the opening paren
     i -= 1
@@ -291,7 +293,7 @@ def _find_tuple(i, tokens):  # pragma: no cover (<py38)
         i -= 1
     # Sometimes tuples don't even have a paren!
     # x = 1, 2, 3
-    if tokens[i].src != '(':
+    if tokens[i].src != '(' and tokens[i].src != '[':
         return None
 
     return _find_simple(i, tokens)
@@ -484,7 +486,7 @@ def _fix_src(contents_text, py35_plus, py36_plus):
         # need to handle tuples afterwards as tuples report their starting
         # starting index as the first element, which may be one of the above
         # things.
-        if token.offset in visitor.tuples:  # pragma: no cover (<py38)
+        if token.offset in visitor.tuples:
             _fix_brace(
                 tokens, _find_tuple(i, tokens),
                 add_comma=True,
