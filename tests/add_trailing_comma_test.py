@@ -950,6 +950,13 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
     assert err == '{} is non-utf-8 (not supported)\n'.format(f.strpath)
 
 
+def test_main_py27_syntaxerror_coding(tmpdir):
+    f = tmpdir.join('f.py')
+    f.write('# -*- coding: utf-8 -*-\n[1, 2,]\n')
+    assert main((f.strpath,)) == 1
+    assert f.read() == '# -*- coding: utf-8 -*-\n[1, 2]\n'
+
+
 def test_main_py35_plus_argument_star_args(tmpdir):
     f = tmpdir.join('f.py')
     f.write('x(\n    *args\n)\n')
