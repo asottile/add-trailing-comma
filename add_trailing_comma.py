@@ -1,21 +1,16 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import argparse
 import ast
 import collections
-import io
 import sys
 import warnings
 from typing import Dict
 from typing import Generator
 from typing import List
+from typing import NamedTuple
 from typing import Optional
 from typing import Sequence
 from typing import Set
 from typing import Tuple
-from typing import Union
 
 from tokenize_rt import ESCAPED_NL
 from tokenize_rt import NON_CODING_TOKENS
@@ -25,83 +20,64 @@ from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 from tokenize_rt import UNIMPORTANT_WS
 
-
-Call = collections.namedtuple('Call', ('node', 'star_args', 'arg_offsets'))
-Func = collections.namedtuple('Func', ('node', 'star_args', 'arg_offsets'))
-Class = collections.namedtuple('Class', ('node', 'star_args', 'arg_offsets'))
-Fix = collections.namedtuple(
-    'Fix', ('braces', 'multi_arg', 'remove_comma', 'initial_indent'),
-)
-
 NEWLINES = frozenset((ESCAPED_NL, 'NEWLINE', 'NL'))
 INDENT_TOKENS = frozenset(('INDENT', UNIMPORTANT_WS))
 START_BRACES = frozenset(('(', '{', '['))
 END_BRACES = frozenset((')', '}', ']'))
 
 
-def ast_parse(contents_text):
-    # type: (str) -> ast.Module
+class Node(NamedTuple):
+    star_args: bool
+    arg_offsets: Set[Offset]
+
+
+class Fix(NamedTuple):
+    braces: Tuple[int, int]
+    multi_arg: bool
+    remove_comma: bool
+    initial_indent: int
+
+
+def ast_parse(contents_text: str) -> ast.Module:
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        return ast.parse(contents_text.encode('UTF-8'))
+        return ast.parse(contents_text.encode())
 
 
-def _to_offset(node):
-    # type: (ast.AST) -> Offset
+def _to_offset(node: ast.AST) -> Offset:
     candidates = [node]
     while candidates:
         candidate = candidates.pop()
         if hasattr(candidate, 'lineno'):
             return Offset(candidate.lineno, candidate.col_offset)
-        elif hasattr(candidate, '_fields'):  # pragma: no cover (PY35+)
+        elif hasattr(candidate, '_fields'):
             for field in reversed(candidate._fields):
                 candidates.append(getattr(candidate, field))
     else:
         raise AssertionError(node)
 
 
-if sys.version_info < (3, 5):  # pragma: no cover (<PY35)
-    def _is_star_arg(node):
-        # type: (ast.AST) -> bool
-        return False
-else:  # pragma: no cover (PY35+)
-    def _is_star_arg(node):
-        # type: (ast.AST) -> bool
-        return isinstance(node, ast.Starred)
-
-
-def _is_star_star_kwarg(node):
-    # type: (ast.AST) -> bool
-    return isinstance(node, ast.keyword) and node.arg is None
-
-
 class FindNodes(ast.NodeVisitor):
-    def __init__(self):
-        # type: () -> None
+    def __init__(self) -> None:
         # multiple calls can report their starting position as the same
-        self.calls = collections.defaultdict(
-            list,
-        )  # type: Dict[Offset, List[Call]]
-        self.funcs = {}  # type: Dict[Offset, Func]
-        self.literals = {}  # type: Dict[Offset, ast.expr]
-        self.tuples = {}  # type: Dict[Offset, ast.Tuple]
-        self.imports = set()  # type: Set[Offset]
-        self.classes = {}  # type: Dict[Offset, Class]
+        self.calls: Dict[Offset, List[Node]] = collections.defaultdict(list)
+        self.funcs: Dict[Offset, Node] = {}
+        self.literals: Dict[Offset, ast.expr] = {}
+        self.tuples: Dict[Offset, ast.Tuple] = {}
+        self.imports: Set[Offset] = set()
+        self.classes: Dict[Offset, Node] = {}
 
-    def _visit_literal(self, node, key='elts'):
-        # type: (ast.expr, str) -> None
+    def _visit_literal(self, node: ast.expr, key: str = 'elts') -> None:
         if getattr(node, key):
             self.literals[_to_offset(node)] = node
         self.generic_visit(node)
 
     visit_Set = visit_List = _visit_literal
 
-    def visit_Dict(self, node):
-        # type: (ast.Dict) -> None
+    def visit_Dict(self, node: ast.Dict) -> None:
         self._visit_literal(node, key='values')
 
-    def visit_Tuple(self, node):
-        # type: (ast.Tuple) -> None
+    def visit_Tuple(self, node: ast.Tuple) -> None:
         if node.elts:
             if _to_offset(node) == _to_offset(node.elts[0]):
                 self.tuples[_to_offset(node)] = node
@@ -112,25 +88,14 @@ class FindNodes(ast.NodeVisitor):
                 self.literals[_to_offset(node)] = node
         self.generic_visit(node)
 
-    def visit_Call(self, node):
-        # type: (ast.Call) -> None
-        argnodes = []  # type: List[ast.AST]
-        argnodes.extend(node.args)
-        argnodes.extend(node.keywords)
-        py2_starargs = getattr(node, 'starargs', None)
-        if py2_starargs:  # pragma: no cover (<PY35)
-            argnodes.append(py2_starargs)
-        py2_kwargs = getattr(node, 'kwargs', None)
-        if py2_kwargs:  # pragma: no cover (<PY35)
-            argnodes.append(py2_kwargs)
-
+    def visit_Call(self, node: ast.Call) -> None:
+        argnodes = [*node.args, *node.keywords]
         arg_offsets = set()
-        has_starargs = bool(py2_starargs or py2_kwargs)
+        has_starargs = False
         for argnode in argnodes:
-            if (
-                    _is_star_arg(argnode) or
-                    _is_star_star_kwarg(argnode)
-            ):  # pragma: no cover (PY35+)
+            if isinstance(argnode, ast.Starred):
+                has_starargs = True
+            if isinstance(argnode, ast.keyword) and argnode.arg is None:
                 has_starargs = True
 
             offset = _to_offset(argnode)
@@ -146,60 +111,52 @@ class FindNodes(ast.NodeVisitor):
 
         if arg_offsets and not only_a_generator:
             key = _to_offset(node)
-            self.calls[key].append(Call(node, has_starargs, arg_offsets))
+            self.calls[key].append(Node(has_starargs, arg_offsets))
 
         self.generic_visit(node)
 
-    def visit_FunctionDef(self, node):
-        # type: (ast.FunctionDef) -> None
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         has_starargs = False
         args = list(node.args.args)
 
         if node.args.vararg:
-            if isinstance(node.args.vararg, ast.AST):  # pragma: no cover (py3)
-                args.append(node.args.vararg)
+            args.append(node.args.vararg)
             has_starargs = True
         if node.args.kwarg:
-            if isinstance(node.args.kwarg, ast.AST):  # pragma: no cover (py3)
-                args.append(node.args.kwarg)
+            args.append(node.args.kwarg)
             has_starargs = True
-        py3_kwonlyargs = getattr(node.args, 'kwonlyargs', None)
-        if py3_kwonlyargs:  # pragma: no cover (py3)
-            args.extend(py3_kwonlyargs)
+        if node.args.kwonlyargs:
+            args.extend(node.args.kwonlyargs)
             has_starargs = True
 
         arg_offsets = {_to_offset(arg) for arg in args}
 
         if arg_offsets:
             key = _to_offset(node)
-            self.funcs[key] = Func(node, has_starargs, arg_offsets)
+            self.funcs[key] = Node(has_starargs, arg_offsets)
 
         self.generic_visit(node)
 
-    def visit_ImportFrom(self, node):
-        # type: (ast.ImportFrom) -> None
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         self.imports.add(_to_offset(node))
         self.generic_visit(node)
 
-    def visit_ClassDef(self, node):
-        # type: (ast.ClassDef) -> None
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         # starargs are allowed in py3 class definitions, py35+ allows trailing
         # commas.  py34 does not, but adding an option for this very obscure
         # case seems not worth it.
         has_starargs = False
-        args = list(node.bases)
-        args.extend(getattr(node, 'keywords', ()))  # py3 only
+        args = [*node.bases, *node.keywords]
         arg_offsets = {_to_offset(arg) for arg in args}
 
         if arg_offsets:
             key = _to_offset(node)
-            self.classes[key] = Class(node, has_starargs, arg_offsets)
+            self.classes[key] = Node(has_starargs, arg_offsets)
 
         self.generic_visit(node)
 
 
-def _find_simple(first_brace, tokens):
-    # type: (int, Sequence[Token]) -> Optional[Fix]
+def _find_simple(first_brace: int, tokens: List[Token]) -> Optional[Fix]:
     brace_stack = [first_brace]
     multi_arg = False
 
@@ -252,8 +209,7 @@ def _find_simple(first_brace, tokens):
     )
 
 
-def _find_call(call, i, tokens):
-    # type: (Union[Call, Class, Func], int, Sequence[Token]) -> Optional[Fix]
+def _find_call(call: Node, i: int, tokens: List[Token]) -> Optional[Fix]:
     # When we get a `call` object, the ast refers to it as this:
     #
     #     func_name(arg, arg, arg)
@@ -285,8 +241,7 @@ def _find_call(call, i, tokens):
     return _find_simple(first_brace, tokens)
 
 
-def _find_tuple(i, tokens):
-    # type: (int, Sequence[Token]) -> Optional[Fix]
+def _find_tuple(i: int, tokens: List[Token]) -> Optional[Fix]:
     # tuples are evil, we need to backtrack to find the opening paren
     i -= 1
     while tokens[i].name in NON_CODING_TOKENS:
@@ -299,8 +254,7 @@ def _find_tuple(i, tokens):
     return _find_simple(i, tokens)
 
 
-def _find_import(i, tokens):
-    # type: (int, List[Token]) -> Optional[Fix]
+def _find_import(i: int, tokens: List[Token]) -> Optional[Fix]:
     # progress forwards until we find either a `(` or a newline
     for i in range(i, len(tokens)):
         token = tokens[i]
@@ -312,8 +266,12 @@ def _find_import(i, tokens):
         raise AssertionError('Past end?')
 
 
-def _fix_brace(tokens, fix_data, add_comma, remove_comma):
-    # type: (List[Token], Optional[Fix], bool, bool) -> None
+def _fix_brace(
+        tokens: List[Token],
+        fix_data: Optional[Fix],
+        add_comma: bool,
+        remove_comma: bool,
+) -> None:
     if fix_data is None:
         return
     first_brace, last_brace = fix_data.braces
@@ -395,8 +353,8 @@ def _fix_brace(tokens, fix_data, add_comma, remove_comma):
             back_2.name == 'NL' and
             len(back_1.src) != fix_data.initial_indent
     ):
-        new_indent = fix_data.initial_indent * ' '
-        tokens[last_brace - 1] = back_1._replace(src=new_indent)
+        indent = fix_data.initial_indent * ' '
+        tokens[last_brace - 1] = back_1._replace(src=indent)
 
     if fix_data.remove_comma:
         start = last_brace
@@ -407,21 +365,20 @@ def _fix_brace(tokens, fix_data, add_comma, remove_comma):
         del tokens[start:last_brace]
 
 
-def _one_el_tuple(node):
-    # type: (ast.expr) -> bool
+def _one_el_tuple(node: ast.expr) -> bool:
     return isinstance(node, ast.Tuple) and len(node.elts) == 1
 
 
-def _changing_list(lst):
-    # type: (Sequence[Token]) -> Generator[Tuple[int, Token], None, None]
+def _changing_list(
+        lst: List[Token],
+) -> Generator[Tuple[int, Token], None, None]:
     i = 0
     while i < len(lst):
         yield i, lst[i]
         i += 1
 
 
-def _fix_src(contents_text, py35_plus, py36_plus):
-    # type: (str, bool, bool) -> str
+def _fix_src(contents_text: str, py35_plus: bool, py36_plus: bool) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -496,8 +453,7 @@ def _fix_src(contents_text, py35_plus, py36_plus):
     return tokens_to_src(tokens)
 
 
-def fix_file(filename, args):
-    # type: (str, argparse.Namespace) -> int
+def fix_file(filename: str, args: argparse.Namespace) -> int:
     if filename == '-':
         contents_bytes = getattr(sys.stdin, 'buffer', sys.stdin).read()
     else:
@@ -505,9 +461,9 @@ def fix_file(filename, args):
             contents_bytes = fb.read()
 
     try:
-        contents_text_orig = contents_text = contents_bytes.decode('UTF-8')
+        contents_text_orig = contents_text = contents_bytes.decode()
     except UnicodeDecodeError:
-        msg = '{} is non-utf-8 (not supported)'.format(filename)
+        msg = f'{filename} is non-utf-8 (not supported)'
         print(msg, file=sys.stderr)
         return 1
 
@@ -516,9 +472,9 @@ def fix_file(filename, args):
     if filename == '-':
         print(contents_text, end='')
     elif contents_text != contents_text_orig:
-        print('Rewriting {}'.format(filename), file=sys.stderr)
-        with io.open(filename, 'w', newline='', encoding='UTF-8') as f:
-            f.write(contents_text)
+        print(f'Rewriting {filename}', file=sys.stderr)
+        with open(filename, 'wb') as f:
+            f.write(contents_text.encode())
 
     if args.exit_zero_even_if_changed:
         return 0
@@ -526,8 +482,7 @@ def fix_file(filename, args):
         return contents_text != contents_text_orig
 
 
-def main(argv=None):
-    # type: (Optional[Sequence[str]]) -> int
+def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')

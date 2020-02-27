@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
 import ast
 import io
 import sys
@@ -11,10 +7,6 @@ import pytest
 
 from add_trailing_comma import _fix_src
 from add_trailing_comma import main
-
-
-xfailif_py2 = pytest.mark.xfail(sys.version_info < (3,), reason='py3+')
-xfailif_lt_py35 = pytest.mark.xfail(sys.version_info < (3, 5), reason='py35+')
 
 
 @pytest.mark.parametrize(
@@ -247,7 +239,6 @@ def test_fixes_literals(src, expected):
     assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
-@xfailif_lt_py35
 @pytest.mark.parametrize(
     ('src', 'expected'),
     (
@@ -348,7 +339,6 @@ def test_fixes_defs(src, expected):
     assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
-@xfailif_py2
 @pytest.mark.parametrize(
     ('src', 'expected'),
     (
@@ -660,7 +650,6 @@ def test_fix_unhugs(src, expected):
     assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
-@xfailif_py2
 @pytest.mark.parametrize(
     ('src', 'expected'),
     (
@@ -869,7 +858,6 @@ def test_remove_extra_comma(src, expected):
     assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
-@xfailif_py2
 @pytest.mark.parametrize(
     ('src', 'expected'),
     (
@@ -923,7 +911,7 @@ def test_main_changes_a_file(tmpdir, capsys):
     f.write('x(\n    1\n)\n')
     assert main((f.strpath,)) == 1
     _, err = capsys.readouterr()
-    assert err == 'Rewriting {}\n'.format(f.strpath)
+    assert err == f'Rewriting {f}\n'
     assert f.read() == 'x(\n    1,\n)\n'
 
 
@@ -932,7 +920,7 @@ def test_main_preserves_line_endings(tmpdir, capsys):
     f.write_binary(b'x(\r\n    1\r\n)\r\n')
     assert main((f.strpath,)) == 1
     _, err = capsys.readouterr()
-    assert err == 'Rewriting {}\n'.format(f.strpath)
+    assert err == f'Rewriting {f}\n'
     assert f.read_binary() == b'x(\r\n    1,\r\n)\r\n'
 
 
@@ -947,7 +935,7 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
     f.write_binary('# -*- coding: cp1252 -*-\nx = €\n'.encode('cp1252'))
     assert main((f.strpath,)) == 1
     _, err = capsys.readouterr()
-    assert err == '{} is non-utf-8 (not supported)\n'.format(f.strpath)
+    assert err == f'{f} is non-utf-8 (not supported)\n'
 
 
 def test_main_py27_syntaxerror_coding(tmpdir):
@@ -984,10 +972,7 @@ def test_main_py36_plus_implies_py35_plus(tmpdir):
     assert f.read() == 'x(\n    **kwargs,\n)\n'
 
 
-@xfailif_py2
-def test_main_py36_plus_function_trailing_commas(
-        tmpdir,
-):  # pragma: no cover (py3+)
+def test_main_py36_plus_function_trailing_commas(tmpdir):
     f = tmpdir.join('f.py')
     f.write('def f(\n    **kwargs\n): pass\n')
     assert main((f.strpath,)) == 0
