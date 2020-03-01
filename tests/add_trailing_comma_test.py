@@ -1,8 +1,8 @@
 import ast
 import io
 import sys
+from unittest import mock
 
-import mock
 import pytest
 
 from add_trailing_comma import _fix_src
