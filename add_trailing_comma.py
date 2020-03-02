@@ -117,7 +117,7 @@ class FindNodes(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         has_starargs = False
-        args = list(node.args.args)
+        args = [*getattr(node.args, 'posonlyargs', ()), *node.args.args]
 
         if node.args.vararg:
             args.append(node.args.vararg)
