@@ -668,6 +668,25 @@ def test_fix_unhugs_py3_only(src, expected):
     assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
 
 
+@pytest.mark.xfail(sys.version_info < (3, 8), reason='py38+')
+@pytest.mark.parametrize(
+    ('src', 'expected'),
+    (
+        (
+            'def f(\n'
+            '    x, /\n'
+            '): pass\n',
+
+            'def f(\n'
+            '    x, /,\n'
+            '): pass\n',
+        ),
+    ),
+)
+def test_fix_posonlyargs(src, expected):
+    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+
+
 @pytest.mark.parametrize(
     'src',
     (
