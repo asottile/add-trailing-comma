@@ -1,5 +1,6 @@
 [![Build Status](https://dev.azure.com/asottile/asottile/_apis/build/status/asottile.add-trailing-comma?branchName=master)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=3&branchName=master)
 [![Azure DevOps coverage](https://img.shields.io/azure-devops/coverage/asottile/asottile/3/master.svg)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=3&branchName=master)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/asottile/add-trailing-comma/master.svg)](https://results.pre-commit.ci/latest/github/asottile/add-trailing-comma/master)
 
 add-trailing-comma
 ==================
