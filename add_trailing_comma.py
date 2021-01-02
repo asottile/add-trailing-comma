@@ -50,7 +50,7 @@ def _to_offset(node: ast.AST) -> Offset:
         candidate = candidates.pop()
         if hasattr(candidate, 'lineno'):
             return Offset(candidate.lineno, candidate.col_offset)
-        elif hasattr(candidate, '_fields'):
+        elif hasattr(candidate, '_fields'):  # pragma: no cover (<py39)
             for field in reversed(candidate._fields):
                 candidates.append(getattr(candidate, field))
     else:
@@ -66,6 +66,19 @@ class FindNodes(ast.NodeVisitor):
         self.tuples: Dict[Offset, ast.Tuple] = {}
         self.imports: Set[Offset] = set()
         self.classes: Dict[Offset, Node] = {}
+
+        # https://bugs.python.org/issue42806
+        # the tokenizer doesn't sub-tokenize in f-string substitutions so
+        # normally calls in there never match, however python3.9's new parser
+        # is buggy
+        self._in_fstring = False
+
+    def visit_FormattedValue(self, node: ast.FormattedValue) -> None:
+        orig, self._in_fstring = self._in_fstring, True
+        try:
+            self.generic_visit(node)
+        finally:
+            self._in_fstring = orig
 
     def _visit_literal(self, node: ast.expr, key: str = 'elts') -> None:
         if getattr(node, key):
@@ -109,7 +122,7 @@ class FindNodes(ast.NodeVisitor):
             len(argnodes) == 1 and isinstance(argnodes[0], ast.GeneratorExp)
         )
 
-        if arg_offsets and not only_a_generator:
+        if arg_offsets and not only_a_generator and not self._in_fstring:
             key = _to_offset(node)
             self.calls[key].append(Node(has_starargs, arg_offsets))
 
