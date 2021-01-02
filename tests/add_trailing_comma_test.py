@@ -41,6 +41,13 @@ from add_trailing_comma import main
         '(\n'
         '    a\n'
         ').f(b)',
+        pytest.param(
+            'x = (\n'
+            '    f" {test(t)}"\n'
+            ')\n',
+
+            id='regression test for #106',
+        ),
     ),
 )
 def test_fix_calls_noops(src):
