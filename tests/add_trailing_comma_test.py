@@ -5,8 +5,8 @@ from unittest import mock
 
 import pytest
 
-from add_trailing_comma import _fix_src
-from add_trailing_comma import main
+from add_trailing_comma._main import _fix_src
+from add_trailing_comma._main import main
 
 
 @pytest.mark.parametrize(
