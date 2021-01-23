@@ -51,7 +51,7 @@ from add_trailing_comma import main
     ),
 )
 def test_fix_calls_noops(src):
-    ret = _fix_src(src, py35_plus=False, py36_plus=False)
+    ret = _fix_src(src, min_version=(2, 7))
     assert ret == src
 
 
@@ -70,7 +70,7 @@ def test_ignores_invalid_ast_node():
         '    """\n'
         ')'
     )
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
+    assert _fix_src(src, min_version=(2, 7)) == src
 
 
 def test_py35_plus_rewrite():
@@ -79,7 +79,7 @@ def test_py35_plus_rewrite():
         '    *args\n'
         ')'
     )
-    ret = _fix_src(src, py35_plus=True, py36_plus=False)
+    ret = _fix_src(src, min_version=(3, 5))
     assert ret == (
         'x(\n'
         '    *args,\n'
@@ -130,7 +130,7 @@ def test_py35_plus_rewrite():
     ),
 )
 def test_fixes_calls(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.parametrize(
@@ -148,7 +148,7 @@ def test_fixes_calls(src, expected):
     ),
 )
 def test_noop_literals(src):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
+    assert _fix_src(src, min_version=(2, 7)) == src
 
 
 @pytest.mark.parametrize(
@@ -243,7 +243,7 @@ def test_noop_literals(src):
     ),
 )
 def test_fixes_literals(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.parametrize(
@@ -288,7 +288,7 @@ def test_fixes_literals(src, expected):
     ),
 )
 def test_fixes_py35_plus_literals(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 def test_noop_tuple_literal_without_braces():
@@ -298,7 +298,7 @@ def test_noop_tuple_literal_without_braces():
         '    2, \\\n'
         '    3'
     )
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
+    assert _fix_src(src, min_version=(2, 7)) == src
 
 
 @pytest.mark.parametrize(
@@ -325,7 +325,7 @@ def test_noop_tuple_literal_without_braces():
     ),
 )
 def test_noop_function_defs(src):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
+    assert _fix_src(src, min_version=(2, 7)) == src
 
 
 @pytest.mark.parametrize(
@@ -343,7 +343,7 @@ def test_noop_function_defs(src):
     ),
 )
 def test_fixes_defs(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.parametrize(
@@ -379,7 +379,7 @@ def test_fixes_defs(src, expected):
     ),
 )
 def test_fixes_defs_py36_plus(src, expected):
-    assert _fix_src(src, py35_plus=True, py36_plus=True) == expected
+    assert _fix_src(src, min_version=(3, 6)) == expected
 
 
 @pytest.mark.parametrize(
@@ -403,7 +403,7 @@ def test_fixes_defs_py36_plus(src, expected):
     ),
 )
 def test_noop_unhugs(src):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
+    assert _fix_src(src, min_version=(2, 7)) == src
 
 
 @pytest.mark.parametrize(
@@ -654,7 +654,7 @@ def test_noop_unhugs(src):
     ),
 )
 def test_fix_unhugs(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.parametrize(
@@ -672,7 +672,7 @@ def test_fix_unhugs(src, expected):
     ),
 )
 def test_fix_unhugs_py3_only(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.xfail(sys.version_info < (3, 8), reason='py38+')
@@ -691,7 +691,7 @@ def test_fix_unhugs_py3_only(src, expected):
     ),
 )
 def test_fix_posonlyargs(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.parametrize(
@@ -722,7 +722,7 @@ def test_fix_posonlyargs(src, expected):
     ),
 )
 def test_noop_trailing_brace(src):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
+    assert _fix_src(src, min_version=(2, 7)) == src
 
 
 @pytest.mark.parametrize(
@@ -764,7 +764,7 @@ def test_noop_trailing_brace(src):
     ),
 )
 def test_fix_trailing_brace(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.parametrize(
@@ -779,7 +779,7 @@ def test_fix_trailing_brace(src, expected):
     ),
 )
 def test_fix_from_import_noop(src):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
+    assert _fix_src(src, min_version=(2, 7)) == src
 
 
 @pytest.mark.parametrize(
@@ -830,7 +830,7 @@ def test_fix_from_import_noop(src):
     ),
 )
 def test_fix_from_import(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.parametrize(
@@ -845,7 +845,7 @@ def test_fix_from_import(src, expected):
     ),
 )
 def test_fix_classes_noop(src):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == src
+    assert _fix_src(src, min_version=(2, 7)) == src
 
 
 @pytest.mark.parametrize(
@@ -862,7 +862,7 @@ def test_fix_classes_noop(src):
     ),
 )
 def test_fix_classes(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.parametrize(
@@ -881,7 +881,7 @@ def test_fix_classes(src, expected):
     ),
 )
 def test_remove_extra_comma(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 @pytest.mark.parametrize(
@@ -918,7 +918,7 @@ def test_remove_extra_comma(src, expected):
     ),
 )
 def test_fix_classes_py3_only_syntax(src, expected):
-    assert _fix_src(src, py35_plus=False, py36_plus=False) == expected
+    assert _fix_src(src, min_version=(2, 7)) == expected
 
 
 def test_main_trivial():

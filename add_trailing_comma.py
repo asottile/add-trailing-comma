@@ -1,16 +1,22 @@
 import argparse
 import ast
 import collections
+import functools
 import sys
 import warnings
+from typing import Callable
 from typing import Dict
 from typing import Generator
+from typing import Iterable
 from typing import List
 from typing import NamedTuple
 from typing import Optional
 from typing import Sequence
 from typing import Set
 from typing import Tuple
+from typing import Type
+from typing import TYPE_CHECKING
+from typing import TypeVar
 
 from tokenize_rt import ESCAPED_NL
 from tokenize_rt import NON_CODING_TOKENS
@@ -20,15 +26,28 @@ from tokenize_rt import Token
 from tokenize_rt import tokens_to_src
 from tokenize_rt import UNIMPORTANT_WS
 
+if TYPE_CHECKING:
+    from typing import Protocol
+else:
+    Protocol = object
+
 NEWLINES = frozenset((ESCAPED_NL, 'NEWLINE', 'NL'))
 INDENT_TOKENS = frozenset(('INDENT', UNIMPORTANT_WS))
 START_BRACES = frozenset(('(', '{', '['))
 END_BRACES = frozenset((')', '}', ']'))
 
 
-class Node(NamedTuple):
-    star_args: bool
-    arg_offsets: Set[Offset]
+class ParseState(NamedTuple):
+    in_fstring: bool = False
+
+
+AST_T = TypeVar('AST_T', bound=ast.AST)
+TokenFunc = Callable[[int, List[Token], Tuple[int, ...]], None]
+ASTFunc = Callable[[ParseState, AST_T], Iterable[Tuple[Offset, TokenFunc]]]
+
+
+class ASTCallbackMapping(Protocol):
+    def __getitem__(self, tp: Type[AST_T]) -> List[ASTFunc[AST_T]]: ...
 
 
 class Fix(NamedTuple):
@@ -57,116 +76,266 @@ def _to_offset(node: ast.AST) -> Offset:
         raise AssertionError(node)
 
 
-class FindNodes(ast.NodeVisitor):
-    def __init__(self) -> None:
-        # multiple calls can report their starting position as the same
-        self.calls: Dict[Offset, List[Node]] = collections.defaultdict(list)
-        self.funcs: Dict[Offset, Node] = {}
-        self.literals: Dict[Offset, ast.expr] = {}
-        self.tuples: Dict[Offset, ast.Tuple] = {}
-        self.imports: Set[Offset] = set()
-        self.classes: Dict[Offset, Node] = {}
+def visit(
+        funcs: ASTCallbackMapping,
+        tree: ast.AST,
+) -> Dict[Offset, List[TokenFunc]]:
+    nodes = [(tree, ParseState())]
 
-        # https://bugs.python.org/issue42806
-        # the tokenizer doesn't sub-tokenize in f-string substitutions so
-        # normally calls in there never match, however python3.9's new parser
-        # is buggy
-        self._in_fstring = False
+    ret = collections.defaultdict(list)
+    while nodes:
+        node, parse_state = nodes.pop()
 
-    def visit_FormattedValue(self, node: ast.FormattedValue) -> None:
-        orig, self._in_fstring = self._in_fstring, True
-        try:
-            self.generic_visit(node)
-        finally:
-            self._in_fstring = orig
+        tp = type(node)
+        for ast_func in funcs[tp]:
+            for offset, token_func in ast_func(parse_state, node):
+                ret[offset].append(token_func)
 
-    def _visit_literal(self, node: ast.expr, key: str = 'elts') -> None:
-        if getattr(node, key):
-            self.literals[_to_offset(node)] = node
-        self.generic_visit(node)
+        if tp is ast.FormattedValue:
+            parse_state = parse_state._replace(in_fstring=True)
 
-    visit_Set = visit_List = _visit_literal
+        for name in reversed(node._fields):
+            value = getattr(node, name)
+            if isinstance(value, ast.AST):
+                nodes.append((value, parse_state))
+            elif isinstance(value, list):
+                for value in reversed(value):
+                    if isinstance(value, ast.AST):
+                        nodes.append((value, parse_state))
+    return ret
 
-    def visit_Dict(self, node: ast.Dict) -> None:
-        self._visit_literal(node, key='values')
 
-    def visit_Tuple(self, node: ast.Tuple) -> None:
-        if node.elts:
-            if _to_offset(node) == _to_offset(node.elts[0]):
-                self.tuples[_to_offset(node)] = node
-            # in < py38 tuples lie about offset -- later we must backtrack
-            elif sys.version_info < (3, 8):  # pragma: no cover (<py38)
-                self.tuples[_to_offset(node)] = node
-            else:  # pragma: no cover (py38+)
-                self.literals[_to_offset(node)] = node
-        self.generic_visit(node)
+FUNCS = collections.defaultdict(list)
 
-    def visit_Call(self, node: ast.Call) -> None:
-        argnodes = [*node.args, *node.keywords]
-        arg_offsets = set()
-        has_starargs = False
-        for argnode in argnodes:
-            if isinstance(argnode, ast.Starred):
-                has_starargs = True
-            if isinstance(argnode, ast.keyword) and argnode.arg is None:
-                has_starargs = True
 
-            offset = _to_offset(argnode)
-            # multiline strings have invalid position, ignore them
-            if offset.utf8_byte_offset != -1:  # pragma: no branch (cpy bug)
-                arg_offsets.add(offset)
+def register(
+        tp: Type[AST_T],
+) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
+    def register_decorator(func: ASTFunc[AST_T]) -> ASTFunc[AST_T]:
+        FUNCS[tp].append(func)
+        return func
+    return register_decorator
 
-        # If the sole argument is a generator, don't add a trailing comma as
-        # this breaks lib2to3 based tools
-        only_a_generator = (
-            len(argnodes) == 1 and isinstance(argnodes[0], ast.GeneratorExp)
+
+def _fix_literal(
+        i: int,
+        tokens: List[Token],
+        version: Tuple[int, ...],
+        *,
+        one_el_tuple: bool,
+) -> None:
+    if tokens[i].src in START_BRACES:  # pragma: no branch (<py38)
+        _fix_brace(
+            tokens, _find_simple(i, tokens),
+            add_comma=True,
+            remove_comma=not one_el_tuple,
         )
 
-        if arg_offsets and not only_a_generator and not self._in_fstring:
-            key = _to_offset(node)
-            self.calls[key].append(Node(has_starargs, arg_offsets))
 
-        self.generic_visit(node)
+@register(ast.Set)
+def visit_Set(
+        parse_state: ParseState,
+        node: ast.Set,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    func = functools.partial(_fix_literal, one_el_tuple=False)
+    yield _to_offset(node), func
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        has_starargs = False
-        args = [*getattr(node.args, 'posonlyargs', ()), *node.args.args]
 
-        if node.args.vararg:
-            args.append(node.args.vararg)
+@register(ast.List)
+def visit_List(
+        parse_state: ParseState,
+        node: ast.List,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    if node.elts:
+        func = functools.partial(_fix_literal, one_el_tuple=False)
+        yield _to_offset(node), func
+
+
+@register(ast.Dict)
+def visit_Dict(
+        parse_state: ParseState,
+        node: ast.Dict,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    if node.values:
+        func = functools.partial(_fix_literal, one_el_tuple=False)
+        yield _to_offset(node), func
+
+
+def _fix_tuple(
+        i: int,
+        tokens: List[Token],
+        version: Tuple[int, ...],
+        *,
+        one_el_tuple: bool,
+) -> None:
+    _fix_brace(
+        tokens,
+        _find_tuple(i, tokens),
+        add_comma=True,
+        remove_comma=not one_el_tuple,
+    )
+
+
+@register(ast.Tuple)
+def visit_Tuple(
+        parse_state: ParseState,
+        node: ast.Tuple,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    if node.elts:
+        is_one_el = _one_el_tuple(node)
+        if (
+                _to_offset(node) == _to_offset(node.elts[0]) or
+                # in < py38 tuples lie about offset -- later we must backtrack
+                sys.version_info < (3, 8)
+        ):
+            func = functools.partial(_fix_tuple, one_el_tuple=is_one_el)
+            yield _to_offset(node), func
+        else:  # pragma: no cover (py38+)
+            func = functools.partial(_fix_literal, one_el_tuple=is_one_el)
+            yield _to_offset(node), func
+
+
+def _fix_call(
+        i: int,
+        tokens: List[Token],
+        version: Tuple[int, ...],
+        *,
+        starargs: bool,
+        arg_offsets: Set[Offset],
+) -> None:
+    return _fix_brace(
+        tokens,
+        _find_call(arg_offsets, i, tokens),
+        add_comma=not starargs or version >= (3, 5),
+        remove_comma=True,
+    )
+
+
+@register(ast.Call)
+def visit_Call(
+        parse_state: ParseState,
+        node: ast.Call,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    argnodes = [*node.args, *node.keywords]
+    arg_offsets = set()
+    has_starargs = False
+    for argnode in argnodes:
+        if isinstance(argnode, ast.Starred):
             has_starargs = True
-        if node.args.kwarg:
-            args.append(node.args.kwarg)
-            has_starargs = True
-        if node.args.kwonlyargs:
-            args.extend(node.args.kwonlyargs)
+        if isinstance(argnode, ast.keyword) and argnode.arg is None:
             has_starargs = True
 
-        arg_offsets = {_to_offset(arg) for arg in args}
+        offset = _to_offset(argnode)
+        # multiline strings have invalid position, ignore them
+        if offset.utf8_byte_offset != -1:  # pragma: no branch (cpy bug)
+            arg_offsets.add(offset)
 
-        if arg_offsets:
-            key = _to_offset(node)
-            self.funcs[key] = Node(has_starargs, arg_offsets)
+    # If the sole argument is a generator, don't add a trailing comma as
+    # this breaks lib2to3 based tools
+    only_a_generator = (
+        len(argnodes) == 1 and isinstance(argnodes[0], ast.GeneratorExp)
+    )
 
-        self.generic_visit(node)
+    if arg_offsets and not only_a_generator and not parse_state.in_fstring:
+        func = functools.partial(
+            _fix_call,
+            starargs=has_starargs,
+            arg_offsets=arg_offsets,
+        )
+        yield _to_offset(node), func
 
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        self.imports.add(_to_offset(node))
-        self.generic_visit(node)
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        # starargs are allowed in py3 class definitions, py35+ allows trailing
-        # commas.  py34 does not, but adding an option for this very obscure
-        # case seems not worth it.
-        has_starargs = False
-        args = [*node.bases, *node.keywords]
-        arg_offsets = {_to_offset(arg) for arg in args}
+def _fix_func(
+        i: int,
+        tokens: List[Token],
+        version: Tuple[int, ...],
+        *,
+        starargs: bool,
+        arg_offsets: Set[Offset],
+) -> None:
+    _fix_brace(
+        tokens,
+        _find_call(arg_offsets, i, tokens),
+        add_comma=not starargs or version >= (3, 6),
+        remove_comma=True,
+    )
 
-        if arg_offsets:
-            key = _to_offset(node)
-            self.classes[key] = Node(has_starargs, arg_offsets)
 
-        self.generic_visit(node)
+@register(ast.FunctionDef)
+def visit_FunctionDef(
+        parse_state: ParseState,
+        node: ast.FunctionDef,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    has_starargs = False
+    args = [*getattr(node.args, 'posonlyargs', ()), *node.args.args]
+
+    if node.args.vararg:
+        args.append(node.args.vararg)
+        has_starargs = True
+    if node.args.kwarg:
+        args.append(node.args.kwarg)
+        has_starargs = True
+    if node.args.kwonlyargs:
+        args.extend(node.args.kwonlyargs)
+        has_starargs = True
+
+    arg_offsets = {_to_offset(arg) for arg in args}
+
+    if arg_offsets:
+        func = functools.partial(
+            _fix_func,
+            starargs=has_starargs,
+            arg_offsets=arg_offsets,
+        )
+        yield _to_offset(node), func
+
+
+def _fix_import(i: int, tokens: List[Token], version: Tuple[int, ...]) -> None:
+    _fix_brace(
+        tokens,
+        _find_import(i, tokens),
+        add_comma=True,
+        remove_comma=True,
+    )
+
+
+@register(ast.ImportFrom)
+def visit_ImportFrom(
+        parse_state: ParseState,
+        node: ast.ImportFrom,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    yield _to_offset(node), _fix_import
+
+
+def _fix_class(
+        i: int,
+        tokens: List[Token],
+        version: Tuple[int, ...],
+        *,
+        arg_offsets: Set[Offset],
+) -> None:
+    _fix_brace(
+        tokens,
+        _find_call(arg_offsets, i, tokens),
+        add_comma=True,
+        remove_comma=True,
+    )
+
+
+@register(ast.ClassDef)
+def visit_ClassDef(
+        parse_state: ParseState,
+        node: ast.ClassDef,
+) -> Iterable[Tuple[Offset, TokenFunc]]:
+    # starargs are allowed in py3 class definitions, py35+ allows trailing
+    # commas.  py34 does not, but adding an option for this very obscure
+    # case seems not worth it.
+    args = [*node.bases, *node.keywords]
+    arg_offsets = {_to_offset(arg) for arg in args}
+
+    if arg_offsets:
+        func = functools.partial(_fix_class, arg_offsets=arg_offsets)
+        yield _to_offset(node), func
 
 
 def _find_simple(first_brace: int, tokens: List[Token]) -> Optional[Fix]:
@@ -222,7 +391,11 @@ def _find_simple(first_brace: int, tokens: List[Token]) -> Optional[Fix]:
     )
 
 
-def _find_call(call: Node, i: int, tokens: List[Token]) -> Optional[Fix]:
+def _find_call(
+        arg_offsets: Set[Offset],
+        i: int,
+        tokens: List[Token],
+) -> Optional[Fix]:
     # When we get a `call` object, the ast refers to it as this:
     #
     #     func_name(arg, arg, arg)
@@ -245,7 +418,7 @@ def _find_call(call: Node, i: int, tokens: List[Token]) -> Optional[Fix]:
         elif token.src == ')' and paren_stack:
             paren_stack.pop()
 
-        if (token.line, token.utf8_byte_offset) in call.arg_offsets:
+        if (token.line, token.utf8_byte_offset) in arg_offsets:
             first_brace = paren_stack[0]
             break
     else:
@@ -391,14 +564,13 @@ def _changing_list(
         i += 1
 
 
-def _fix_src(contents_text: str, py35_plus: bool, py36_plus: bool) -> str:
+def _fix_src(contents_text: str, min_version: Tuple[int, ...]) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    visitor = FindNodes()
-    visitor.visit(ast_obj)
+    callbacks = visit(FUNCS, ast_obj)
 
     tokens = src_to_tokens(contents_text)
     for i, token in _changing_list(tokens):
@@ -406,61 +578,16 @@ def _fix_src(contents_text: str, py35_plus: bool, py36_plus: bool) -> str:
         if not token.src:
             continue
 
-        if token.offset in visitor.calls:
-            for call in visitor.calls[token.offset]:
-                # Only fix stararg calls if asked to
-                add_comma = not call.star_args or py35_plus
-                _fix_brace(
-                    tokens, _find_call(call, i, tokens),
-                    add_comma=add_comma,
-                    remove_comma=True,
-                )
-        elif token.offset in visitor.funcs:
-            func = visitor.funcs[token.offset]
-            add_comma = not func.star_args or py36_plus
-            # functions can be treated as calls
-            _fix_brace(
-                tokens, _find_call(func, i, tokens),
-                add_comma=add_comma,
-                remove_comma=True,
-            )
-        elif token.offset in visitor.classes:
-            # classes can be treated as calls
-            cls = visitor.classes[token.offset]
-            _fix_brace(
-                tokens, _find_call(cls, i, tokens),
-                add_comma=True,
-                remove_comma=True,
-            )
-        elif token.offset in visitor.literals and token.src in START_BRACES:
-            _fix_brace(
-                tokens, _find_simple(i, tokens),
-                add_comma=True,
-                remove_comma=not _one_el_tuple(visitor.literals[token.offset]),
-            )
-        elif token.offset in visitor.imports:
-            # some imports do not have parens
-            _fix_brace(
-                tokens, _find_import(i, tokens),
-                add_comma=True,
-                remove_comma=True,
-            )
-        # Handle parenthesized things, unhug of tuples, and comprehensions
-        elif token.src in START_BRACES:
+        # though this is a defaultdict, by using `.get()` this function's
+        # self time is almost 50% faster
+        for callback in callbacks.get(token.offset, ()):
+            callback(i, tokens, min_version)
+
+        if token.src in START_BRACES:
             _fix_brace(
                 tokens, _find_simple(i, tokens),
                 add_comma=False,
                 remove_comma=False,
-            )
-
-        # need to handle tuples afterwards as tuples report their starting
-        # starting index as the first element, which may be one of the above
-        # things.
-        if token.offset in visitor.tuples:
-            _fix_brace(
-                tokens, _find_tuple(i, tokens),
-                add_comma=True,
-                remove_comma=not _one_el_tuple(visitor.tuples[token.offset]),
             )
 
     return tokens_to_src(tokens)
@@ -480,7 +607,7 @@ def fix_file(filename: str, args: argparse.Namespace) -> int:
         print(msg, file=sys.stderr)
         return 1
 
-    contents_text = _fix_src(contents_text, args.py35_plus, args.py36_plus)
+    contents_text = _fix_src(contents_text, args.min_version)
 
     if filename == '-':
         print(contents_text, end='')
@@ -499,12 +626,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
-    parser.add_argument('--py35-plus', action='store_true')
-    parser.add_argument('--py36-plus', action='store_true')
+    parser.add_argument(
+        '--py35-plus',
+        action='store_const', dest='min_version', const=(3, 5), default=(2, 7),
+    )
+    parser.add_argument(
+        '--py36-plus',
+        action='store_const', dest='min_version', const=(3, 6),
+    )
     args = parser.parse_args(argv)
-
-    if args.py36_plus:
-        args.py35_plus = True
 
     ret = 0
     for filename in args.filenames:
