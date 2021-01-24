@@ -44,6 +44,15 @@ def test_noop_function_defs(src):
             '        x,\n'
             '): pass',
         ),
+        pytest.param(
+            'async def f(\n'
+            '        x\n'
+            '): pass',
+            'async def f(\n'
+            '        x,\n'
+            '): pass',
+            id='async def',
+        ),
     ),
 )
 def test_fixes_defs(src, expected):

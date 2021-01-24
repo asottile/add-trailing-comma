@@ -121,6 +121,14 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
  ):
 ```
 
+```diff
+ async def func(
+         arg1,
+-        arg2
++        arg2,
+ ):
+```
+
 ### trailing commas for function definitions with unpacking arguments
 
 If `--py36-plus` is passed, `add-trailing-comma` will also perform the
