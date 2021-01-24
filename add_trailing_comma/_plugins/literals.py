@@ -11,9 +11,10 @@ from tokenize_rt import Offset
 from tokenize_rt import Token
 
 from add_trailing_comma._ast_helpers import ast_to_offset
-from add_trailing_comma._data import ParseState
 from add_trailing_comma._data import register
+from add_trailing_comma._data import State
 from add_trailing_comma._data import TokenFunc
+from add_trailing_comma._data import Version
 from add_trailing_comma._token_helpers import find_simple
 from add_trailing_comma._token_helpers import Fix
 from add_trailing_comma._token_helpers import fix_brace
@@ -23,7 +24,6 @@ from add_trailing_comma._token_helpers import START_BRACES
 def _fix_literal(
         i: int,
         tokens: List[Token],
-        version: Tuple[int, ...],
         *,
         one_el_tuple: bool,
 ) -> None:
@@ -37,8 +37,9 @@ def _fix_literal(
 
 @register(ast.Set)
 def visit_Set(
-        parse_state: ParseState,
+        state: State,
         node: ast.Set,
+        version: Version,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     func = functools.partial(_fix_literal, one_el_tuple=False)
     yield ast_to_offset(node), func
@@ -46,8 +47,9 @@ def visit_Set(
 
 @register(ast.List)
 def visit_List(
-        parse_state: ParseState,
+        state: State,
         node: ast.List,
+        version: Version,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if node.elts:
         func = functools.partial(_fix_literal, one_el_tuple=False)
@@ -56,8 +58,9 @@ def visit_List(
 
 @register(ast.Dict)
 def visit_Dict(
-        parse_state: ParseState,
+        state: State,
         node: ast.Dict,
+        version: Version,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if node.values:
         func = functools.partial(_fix_literal, one_el_tuple=False)
@@ -80,7 +83,6 @@ def _find_tuple(i: int, tokens: List[Token]) -> Optional[Fix]:
 def _fix_tuple(
         i: int,
         tokens: List[Token],
-        version: Tuple[int, ...],
         *,
         one_el_tuple: bool,
 ) -> None:
@@ -94,8 +96,9 @@ def _fix_tuple(
 
 @register(ast.Tuple)
 def visit_Tuple(
-        parse_state: ParseState,
+        state: State,
         node: ast.Tuple,
+        version: Version,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     if node.elts:
         is_one_el = len(node.elts) == 1

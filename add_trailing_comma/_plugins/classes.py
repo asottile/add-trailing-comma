@@ -9,9 +9,10 @@ from tokenize_rt import Offset
 from tokenize_rt import Token
 
 from add_trailing_comma._ast_helpers import ast_to_offset
-from add_trailing_comma._data import ParseState
 from add_trailing_comma._data import register
+from add_trailing_comma._data import State
 from add_trailing_comma._data import TokenFunc
+from add_trailing_comma._data import Version
 from add_trailing_comma._token_helpers import find_call
 from add_trailing_comma._token_helpers import fix_brace
 
@@ -19,7 +20,6 @@ from add_trailing_comma._token_helpers import fix_brace
 def _fix_class(
         i: int,
         tokens: List[Token],
-        version: Tuple[int, ...],
         *,
         arg_offsets: Set[Offset],
 ) -> None:
@@ -33,8 +33,9 @@ def _fix_class(
 
 @register(ast.ClassDef)
 def visit_ClassDef(
-        parse_state: ParseState,
+        state: State,
         node: ast.ClassDef,
+        version: Version,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     # starargs are allowed in py3 class definitions, py35+ allows trailing
     # commas.  py34 does not, but adding an option for this very obscure
