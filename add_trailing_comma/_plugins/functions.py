@@ -4,6 +4,7 @@ from typing import Iterable
 from typing import List
 from typing import Set
 from typing import Tuple
+from typing import Union
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -32,10 +33,9 @@ def _fix_func(
     )
 
 
-@register(ast.FunctionDef)
 def visit_FunctionDef(
         parse_state: ParseState,
-        node: ast.FunctionDef,
+        node: Union[ast.AsyncFunctionDef, ast.FunctionDef],
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     has_starargs = False
     args = [*getattr(node.args, 'posonlyargs', ()), *node.args.args]
@@ -59,3 +59,7 @@ def visit_FunctionDef(
             arg_offsets=arg_offsets,
         )
         yield ast_to_offset(node), func
+
+
+register(ast.AsyncFunctionDef)(visit_FunctionDef)
+register(ast.FunctionDef)(visit_FunctionDef)
