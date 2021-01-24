@@ -12,7 +12,6 @@ from add_trailing_comma._ast_helpers import ast_to_offset
 from add_trailing_comma._data import register
 from add_trailing_comma._data import State
 from add_trailing_comma._data import TokenFunc
-from add_trailing_comma._data import Version
 from add_trailing_comma._token_helpers import find_call
 from add_trailing_comma._token_helpers import fix_brace
 
@@ -36,7 +35,6 @@ def _fix_call(
 def visit_Call(
         state: State,
         node: ast.Call,
-        version: Version,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     argnodes = [*node.args, *node.keywords]
     arg_offsets = set()
@@ -61,7 +59,7 @@ def visit_Call(
     if arg_offsets and not only_a_generator and not state.in_fstring:
         func = functools.partial(
             _fix_call,
-            add_comma=not has_starargs or version >= (3, 5),
+            add_comma=not has_starargs or state.min_version >= (3, 5),
             arg_offsets=arg_offsets,
         )
         yield ast_to_offset(node), func

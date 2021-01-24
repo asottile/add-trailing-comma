@@ -11,7 +11,6 @@ from add_trailing_comma._ast_helpers import ast_to_offset
 from add_trailing_comma._data import register
 from add_trailing_comma._data import State
 from add_trailing_comma._data import TokenFunc
-from add_trailing_comma._data import Version
 from add_trailing_comma._token_helpers import find_simple
 from add_trailing_comma._token_helpers import Fix
 from add_trailing_comma._token_helpers import fix_brace
@@ -42,6 +41,5 @@ def _fix_import(i: int, tokens: List[Token]) -> None:
 def visit_ImportFrom(
         state: State,
         node: ast.ImportFrom,
-        version: Version,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     yield ast_to_offset(node), _fix_import

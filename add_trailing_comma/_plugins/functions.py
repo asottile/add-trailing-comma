@@ -13,7 +13,6 @@ from add_trailing_comma._ast_helpers import ast_to_offset
 from add_trailing_comma._data import register
 from add_trailing_comma._data import State
 from add_trailing_comma._data import TokenFunc
-from add_trailing_comma._data import Version
 from add_trailing_comma._token_helpers import find_call
 from add_trailing_comma._token_helpers import fix_brace
 
@@ -36,7 +35,6 @@ def _fix_func(
 def visit_FunctionDef(
         state: State,
         node: Union[ast.AsyncFunctionDef, ast.FunctionDef],
-        version: Version,
 ) -> Iterable[Tuple[Offset, TokenFunc]]:
     has_starargs = False
     args = [*getattr(node.args, 'posonlyargs', ()), *node.args.args]
@@ -56,7 +54,7 @@ def visit_FunctionDef(
     if arg_offsets:
         func = functools.partial(
             _fix_func,
-            add_comma=not has_starargs or version >= (3, 6),
+            add_comma=not has_starargs or state.min_version >= (3, 6),
             arg_offsets=arg_offsets,
         )
         yield ast_to_offset(node), func

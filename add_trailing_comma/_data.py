@@ -21,15 +21,17 @@ if TYPE_CHECKING:
 else:
     Protocol = object
 
+Version = Tuple[int, ...]
+
 
 class State(NamedTuple):
+    min_version: Version
     in_fstring: bool = False
 
 
 AST_T = TypeVar('AST_T', bound=ast.AST)
-Version = Tuple[int, ...]
 TokenFunc = Callable[[int, List[Token]], None]
-ASTFunc = Callable[[State, AST_T, Version], Iterable[Tuple[Offset, TokenFunc]]]
+ASTFunc = Callable[[State, AST_T], Iterable[Tuple[Offset, TokenFunc]]]
 
 FUNCS = collections.defaultdict(list)
 
@@ -50,7 +52,7 @@ def visit(
         tree: ast.AST,
         version: Version,
 ) -> Dict[Offset, List[TokenFunc]]:
-    nodes = [(tree, State())]
+    nodes = [(tree, State(min_version=version))]
 
     ret = collections.defaultdict(list)
     while nodes:
@@ -58,7 +60,7 @@ def visit(
 
         tp = type(node)
         for ast_func in funcs[tp]:
-            for offset, token_func in ast_func(state, node, version):
+            for offset, token_func in ast_func(state, node):
                 ret[offset].append(token_func)
 
         if tp is ast.FormattedValue:
