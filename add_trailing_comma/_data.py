@@ -22,13 +22,14 @@ else:
     Protocol = object
 
 
-class ParseState(NamedTuple):
+class State(NamedTuple):
     in_fstring: bool = False
 
 
 AST_T = TypeVar('AST_T', bound=ast.AST)
-TokenFunc = Callable[[int, List[Token], Tuple[int, ...]], None]
-ASTFunc = Callable[[ParseState, AST_T], Iterable[Tuple[Offset, TokenFunc]]]
+Version = Tuple[int, ...]
+TokenFunc = Callable[[int, List[Token]], None]
+ASTFunc = Callable[[State, AST_T, Version], Iterable[Tuple[Offset, TokenFunc]]]
 
 FUNCS = collections.defaultdict(list)
 
@@ -47,29 +48,30 @@ class ASTCallbackMapping(Protocol):
 def visit(
         funcs: ASTCallbackMapping,
         tree: ast.AST,
+        version: Version,
 ) -> Dict[Offset, List[TokenFunc]]:
-    nodes = [(tree, ParseState())]
+    nodes = [(tree, State())]
 
     ret = collections.defaultdict(list)
     while nodes:
-        node, parse_state = nodes.pop()
+        node, state = nodes.pop()
 
         tp = type(node)
         for ast_func in funcs[tp]:
-            for offset, token_func in ast_func(parse_state, node):
+            for offset, token_func in ast_func(state, node, version):
                 ret[offset].append(token_func)
 
         if tp is ast.FormattedValue:
-            parse_state = parse_state._replace(in_fstring=True)
+            state = state._replace(in_fstring=True)
 
         for name in reversed(node._fields):
             value = getattr(node, name)
             if isinstance(value, ast.AST):
-                nodes.append((value, parse_state))
+                nodes.append((value, state))
             elif isinstance(value, list):
                 for value in reversed(value):
                     if isinstance(value, ast.AST):
-                        nodes.append((value, parse_state))
+                        nodes.append((value, state))
     return ret
 
 

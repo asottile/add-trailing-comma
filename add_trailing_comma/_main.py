@@ -31,7 +31,7 @@ def _fix_src(contents_text: str, min_version: Tuple[int, ...]) -> str:
     except SyntaxError:
         return contents_text
 
-    callbacks = visit(FUNCS, ast_obj)
+    callbacks = visit(FUNCS, ast_obj, min_version)
 
     tokens = src_to_tokens(contents_text)
     for i, token in _changing_list(tokens):
@@ -42,7 +42,7 @@ def _fix_src(contents_text: str, min_version: Tuple[int, ...]) -> str:
         # though this is a defaultdict, by using `.get()` this function's
         # self time is almost 50% faster
         for callback in callbacks.get(token.offset, ()):
-            callback(i, tokens, min_version)
+            callback(i, tokens)
 
         if token.src in START_BRACES:
             fix_brace(
