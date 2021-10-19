@@ -176,6 +176,36 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
      pass
 ```
 
+### trailing comma for match statement
+
+```diff
+ match x:
+     case A(
+        1,
+-       2
++       2,
+     ):
+        pass
+     case (
+        1,
+-       2
++       2,
+     ):
+        pass
+     case [
+        1,
+-       2
++       2,
+     ]:
+        pass
+     case {
+        'x': 1,
+-       'y': 2
++       'y': 2,
+     }:
+        pass
+```
+
 ### unhug trailing paren
 
 ```diff
