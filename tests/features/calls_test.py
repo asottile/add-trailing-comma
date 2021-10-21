@@ -69,6 +69,15 @@ def test_ignores_invalid_ast_node():
     assert _fix_src(src, min_version=(2, 7)) == src
 
 
+def test_multiline_string_with_call():
+    src = (
+        'x = """\n'
+        '   y\n'
+        '    """.format(x, y)\n'
+    )
+    assert _fix_src(src, min_version=(2, 7)) == src
+
+
 def test_py35_plus_rewrite():
     src = (
         'x(\n'
