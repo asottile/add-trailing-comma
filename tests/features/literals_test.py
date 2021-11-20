@@ -15,6 +15,12 @@ from add_trailing_comma._main import _fix_src
         '    pass\n'
         '[x] = {y}',
         pytest.param('x[1, 2, 3, 4]', id='multi-slice'),
+        pytest.param(
+            'x = (\n'
+            '    object\n'
+            '), object\n',
+            id='regression test for #153',
+        ),
     ),
 )
 def test_noop_literals(src):

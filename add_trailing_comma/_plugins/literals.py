@@ -26,12 +26,11 @@ def _fix_literal(
         *,
         one_el_tuple: bool,
 ) -> None:
-    if tokens[i].src in START_BRACES:  # pragma: no branch (<py38)
-        fix_brace(
-            tokens, find_simple(i, tokens),
-            add_comma=True,
-            remove_comma=not one_el_tuple,
-        )
+    fix_brace(
+        tokens, find_simple(i, tokens),
+        add_comma=True,
+        remove_comma=not one_el_tuple,
+    )
 
 
 @register(ast.Set)
@@ -90,6 +89,27 @@ def _fix_tuple(
     )
 
 
+def _fix_tuple_py38(
+        i: int,
+        tokens: List[Token],
+        *,
+        one_el_tuple: bool,
+) -> None:  # pragma: no cover (<py38)
+    if tokens[i].src in START_BRACES:
+        fix = find_simple(i, tokens)
+
+        # for tuples we *must* find a comma, otherwise it is not a tuple
+        if fix is None or not fix.multi_arg:
+            return
+
+        fix_brace(
+            tokens,
+            fix,
+            add_comma=True,
+            remove_comma=not one_el_tuple,
+        )
+
+
 @register(ast.Tuple)
 def visit_Tuple(
         state: State,
@@ -105,5 +125,5 @@ def visit_Tuple(
             func = functools.partial(_fix_tuple, one_el_tuple=is_one_el)
             yield ast_to_offset(node), func
         else:  # pragma: no cover (py38+)
-            func = functools.partial(_fix_literal, one_el_tuple=is_one_el)
+            func = functools.partial(_fix_tuple_py38, one_el_tuple=is_one_el)
             yield ast_to_offset(node), func
