@@ -17,7 +17,6 @@ from add_trailing_comma._data import TokenFunc
 from add_trailing_comma._token_helpers import find_simple
 from add_trailing_comma._token_helpers import Fix
 from add_trailing_comma._token_helpers import fix_brace
-from add_trailing_comma._token_helpers import START_BRACES
 
 
 def _fix_literal(
@@ -94,20 +93,19 @@ def _fix_tuple_py38(
         tokens: List[Token],
         *,
         one_el_tuple: bool,
-) -> None:  # pragma: no cover (<py38)
-    if tokens[i].src in START_BRACES:
-        fix = find_simple(i, tokens)
+) -> None:  # pragma: >=3.8 cover
+    fix = find_simple(i, tokens)
 
-        # for tuples we *must* find a comma, otherwise it is not a tuple
-        if fix is None or not fix.multi_arg:
-            return
+    # for tuples we *must* find a comma, otherwise it is not a tuple
+    if fix is None or not fix.multi_arg:
+        return
 
-        fix_brace(
-            tokens,
-            fix,
-            add_comma=True,
-            remove_comma=not one_el_tuple,
-        )
+    fix_brace(
+        tokens,
+        fix,
+        add_comma=True,
+        remove_comma=not one_el_tuple,
+    )
 
 
 @register(ast.Tuple)
@@ -124,6 +122,6 @@ def visit_Tuple(
         ):
             func = functools.partial(_fix_tuple, one_el_tuple=is_one_el)
             yield ast_to_offset(node), func
-        else:  # pragma: no cover (py38+)
+        else:  # pragma: >=3.8 cover
             func = functools.partial(_fix_tuple_py38, one_el_tuple=is_one_el)
             yield ast_to_offset(node), func

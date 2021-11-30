@@ -18,7 +18,7 @@ from add_trailing_comma._token_helpers import find_simple
 from add_trailing_comma._token_helpers import fix_brace
 
 
-if sys.version_info >= (3, 10):  # pragma: no cover (py310+)
+if sys.version_info >= (3, 10):  # pragma: >=3.10 cover
     def _fix_match_class(
             i: int,
             tokens: List[Token],
