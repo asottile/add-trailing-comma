@@ -56,7 +56,7 @@ def _fix_src(contents_text: str, min_version: Tuple[int, ...]) -> str:
 
 def fix_file(filename: str, args: argparse.Namespace) -> int:
     if filename == '-':
-        contents_bytes = getattr(sys.stdin, 'buffer', sys.stdin).read()
+        contents_bytes = sys.stdin.buffer.read()
     else:
         with open(filename, 'rb') as fb:
             contents_bytes = fb.read()
