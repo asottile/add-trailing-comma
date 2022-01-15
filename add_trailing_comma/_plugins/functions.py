@@ -1,10 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import List
-from typing import Set
-from typing import Tuple
-from typing import Union
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -19,10 +17,10 @@ from add_trailing_comma._token_helpers import fix_brace
 
 def _fix_func(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         add_comma: bool,
-        arg_offsets: Set[Offset],
+        arg_offsets: set[Offset],
 ) -> None:
     fix_brace(
         tokens,
@@ -34,8 +32,8 @@ def _fix_func(
 
 def visit_FunctionDef(
         state: State,
-        node: Union[ast.AsyncFunctionDef, ast.FunctionDef],
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+        node: ast.AsyncFunctionDef | ast.FunctionDef,
+) -> Iterable[tuple[Offset, TokenFunc]]:
     has_starargs = False
     args = [*getattr(node.args, 'posonlyargs', ()), *node.args.args]
 

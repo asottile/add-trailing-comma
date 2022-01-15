@@ -1,8 +1,7 @@
+from __future__ import annotations
+
 import ast
 from typing import Iterable
-from typing import List
-from typing import Optional
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -16,7 +15,7 @@ from add_trailing_comma._token_helpers import Fix
 from add_trailing_comma._token_helpers import fix_brace
 
 
-def _find_import(i: int, tokens: List[Token]) -> Optional[Fix]:
+def _find_import(i: int, tokens: list[Token]) -> Fix | None:
     # progress forwards until we find either a `(` or a newline
     for i in range(i, len(tokens)):
         token = tokens[i]
@@ -28,7 +27,7 @@ def _find_import(i: int, tokens: List[Token]) -> Optional[Fix]:
         raise AssertionError('Past end?')
 
 
-def _fix_import(i: int, tokens: List[Token]) -> None:
+def _fix_import(i: int, tokens: list[Token]) -> None:
     fix_brace(
         tokens,
         _find_import(i, tokens),
@@ -41,5 +40,5 @@ def _fix_import(i: int, tokens: List[Token]) -> None:
 def visit_ImportFrom(
         state: State,
         node: ast.ImportFrom,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     yield ast_to_offset(node), _fix_import

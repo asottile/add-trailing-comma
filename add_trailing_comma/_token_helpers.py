@@ -1,8 +1,6 @@
-from typing import List
+from __future__ import annotations
+
 from typing import NamedTuple
-from typing import Optional
-from typing import Set
-from typing import Tuple
 
 from tokenize_rt import ESCAPED_NL
 from tokenize_rt import NON_CODING_TOKENS
@@ -17,13 +15,13 @@ END_BRACES = frozenset((')', '}', ']'))
 
 
 class Fix(NamedTuple):
-    braces: Tuple[int, int]
+    braces: tuple[int, int]
     multi_arg: bool
     remove_comma: bool
     initial_indent: int
 
 
-def find_simple(first_brace: int, tokens: List[Token]) -> Optional[Fix]:
+def find_simple(first_brace: int, tokens: list[Token]) -> Fix | None:
     brace_stack = [first_brace]
     multi_arg = False
 
@@ -77,10 +75,10 @@ def find_simple(first_brace: int, tokens: List[Token]) -> Optional[Fix]:
 
 
 def find_call(
-        arg_offsets: Set[Offset],
+        arg_offsets: set[Offset],
         i: int,
-        tokens: List[Token],
-) -> Optional[Fix]:
+        tokens: list[Token],
+) -> Fix | None:
     # When we get a `call` object, the ast refers to it as this:
     #
     #     func_name(arg, arg, arg)
@@ -113,8 +111,8 @@ def find_call(
 
 
 def fix_brace(
-        tokens: List[Token],
-        fix_data: Optional[Fix],
+        tokens: list[Token],
+        fix_data: Fix | None,
         add_comma: bool,
         remove_comma: bool,
 ) -> None:

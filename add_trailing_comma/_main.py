@@ -1,10 +1,9 @@
+from __future__ import annotations
+
 import argparse
 import sys
 from typing import Iterable
-from typing import List
-from typing import Optional
 from typing import Sequence
-from typing import Tuple
 
 from tokenize_rt import src_to_tokens
 from tokenize_rt import Token
@@ -18,14 +17,14 @@ from add_trailing_comma._token_helpers import fix_brace
 from add_trailing_comma._token_helpers import START_BRACES
 
 
-def _changing_list(lst: List[Token]) -> Iterable[Tuple[int, Token]]:
+def _changing_list(lst: list[Token]) -> Iterable[tuple[int, Token]]:
     i = 0
     while i < len(lst):
         yield i, lst[i]
         i += 1
 
 
-def _fix_src(contents_text: str, min_version: Tuple[int, ...]) -> str:
+def _fix_src(contents_text: str, min_version: tuple[int, ...]) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
@@ -83,7 +82,7 @@ def fix_file(filename: str, args: argparse.Namespace) -> int:
         return contents_text != contents_text_orig
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
