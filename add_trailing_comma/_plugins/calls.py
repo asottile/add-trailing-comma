@@ -1,9 +1,8 @@
+from __future__ import annotations
+
 import ast
 import functools
 from typing import Iterable
-from typing import List
-from typing import Set
-from typing import Tuple
 
 from tokenize_rt import Offset
 from tokenize_rt import Token
@@ -18,10 +17,10 @@ from add_trailing_comma._token_helpers import fix_brace
 
 def _fix_call(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         add_comma: bool,
-        arg_offsets: Set[Offset],
+        arg_offsets: set[Offset],
 ) -> None:
     return fix_brace(
         tokens,
@@ -35,7 +34,7 @@ def _fix_call(
 def visit_Call(
         state: State,
         node: ast.Call,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     argnodes = [*node.args, *node.keywords]
     arg_offsets = set()
     has_starargs = False

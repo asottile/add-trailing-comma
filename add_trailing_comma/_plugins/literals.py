@@ -1,10 +1,9 @@
+from __future__ import annotations
+
 import ast
 import functools
 import sys
 from typing import Iterable
-from typing import List
-from typing import Optional
-from typing import Tuple
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
@@ -21,7 +20,7 @@ from add_trailing_comma._token_helpers import fix_brace
 
 def _fix_literal(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         one_el_tuple: bool,
 ) -> None:
@@ -36,7 +35,7 @@ def _fix_literal(
 def visit_Set(
         state: State,
         node: ast.Set,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     func = functools.partial(_fix_literal, one_el_tuple=False)
     yield ast_to_offset(node), func
 
@@ -45,7 +44,7 @@ def visit_Set(
 def visit_List(
         state: State,
         node: ast.List,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if node.elts:
         func = functools.partial(_fix_literal, one_el_tuple=False)
         yield ast_to_offset(node), func
@@ -55,13 +54,13 @@ def visit_List(
 def visit_Dict(
         state: State,
         node: ast.Dict,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if node.values:
         func = functools.partial(_fix_literal, one_el_tuple=False)
         yield ast_to_offset(node), func
 
 
-def _find_tuple(i: int, tokens: List[Token]) -> Optional[Fix]:
+def _find_tuple(i: int, tokens: list[Token]) -> Fix | None:
     # tuples are evil, we need to backtrack to find the opening paren
     i -= 1
     while tokens[i].name in NON_CODING_TOKENS:
@@ -76,7 +75,7 @@ def _find_tuple(i: int, tokens: List[Token]) -> Optional[Fix]:
 
 def _fix_tuple(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         one_el_tuple: bool,
 ) -> None:
@@ -90,7 +89,7 @@ def _fix_tuple(
 
 def _fix_tuple_py38(
         i: int,
-        tokens: List[Token],
+        tokens: list[Token],
         *,
         one_el_tuple: bool,
 ) -> None:  # pragma: >=3.8 cover
@@ -112,7 +111,7 @@ def _fix_tuple_py38(
 def visit_Tuple(
         state: State,
         node: ast.Tuple,
-) -> Iterable[Tuple[Offset, TokenFunc]]:
+) -> Iterable[tuple[Offset, TokenFunc]]:
     if node.elts:
         is_one_el = len(node.elts) == 1
         if (

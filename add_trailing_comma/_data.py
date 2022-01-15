@@ -1,13 +1,13 @@
+from __future__ import annotations
+
 import ast
 import collections
 import pkgutil
 from typing import Callable
-from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import NamedTuple
 from typing import Tuple
-from typing import Type
 from typing import TYPE_CHECKING
 from typing import TypeVar
 
@@ -36,7 +36,7 @@ ASTFunc = Callable[[State, AST_T], Iterable[Tuple[Offset, TokenFunc]]]
 FUNCS = collections.defaultdict(list)
 
 
-def register(tp: Type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
+def register(tp: type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
     def register_decorator(func: ASTFunc[AST_T]) -> ASTFunc[AST_T]:
         FUNCS[tp].append(func)
         return func
@@ -44,14 +44,14 @@ def register(tp: Type[AST_T]) -> Callable[[ASTFunc[AST_T]], ASTFunc[AST_T]]:
 
 
 class ASTCallbackMapping(Protocol):
-    def __getitem__(self, tp: Type[AST_T]) -> List[ASTFunc[AST_T]]: ...
+    def __getitem__(self, tp: type[AST_T]) -> list[ASTFunc[AST_T]]: ...
 
 
 def visit(
         funcs: ASTCallbackMapping,
         tree: ast.AST,
         version: Version,
-) -> Dict[Offset, List[TokenFunc]]:
+) -> dict[Offset, list[TokenFunc]]:
     nodes = [(tree, State(min_version=version))]
 
     ret = collections.defaultdict(list)
