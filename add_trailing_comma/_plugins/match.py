@@ -50,6 +50,8 @@ if sys.version_info >= (3, 10):  # pragma: >=3.10 cover
         )
 
     def _fix_sequence(i: int, tokens: list[Token], *, n: int) -> None:
+        if tokens[i].src not in '[(':
+            return  # not actually a braced sequence
         remove_comma = tokens[i].src == '[' or n > 1
         fix_brace(
             tokens,

@@ -7,6 +7,21 @@ import pytest
 from add_trailing_comma._main import _fix_src
 
 
+@pytest.mark.parametrize(
+    's',
+    (
+        pytest.param(
+            'match x:\n'
+            '    case 1, 2:\n'
+            '        pass\n',
+            id='sequence without braces',
+        ),
+    ),
+)
+def test_noop(s):
+    assert _fix_src(s, min_version=(2, 7)) == s
+
+
 @pytest.mark.xfail(sys.version_info < (3, 10), reason='py310+')
 @pytest.mark.parametrize(
     ('src', 'expected'),
