@@ -38,8 +38,9 @@ if sys.version_info >= (3, 10):  # pragma: >=3.10 cover
     ) -> Iterable[tuple[Offset, TokenFunc]]:
         arg_offsets = {ast_to_offset(pat) for pat in node.patterns}
         arg_offsets |= {ast_to_offset(pat) for pat in node.kwd_patterns}
-        func = functools.partial(_fix_match_class, arg_offsets=arg_offsets)
-        yield ast_to_offset(node), func
+        if arg_offsets:  # can't add commas without args!
+            func = functools.partial(_fix_match_class, arg_offsets=arg_offsets)
+            yield ast_to_offset(node), func
 
     def _fix_mapping(i: int, tokens: list[Token]) -> None:
         fix_brace(

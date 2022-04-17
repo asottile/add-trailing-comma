@@ -16,6 +16,12 @@ from add_trailing_comma._main import _fix_src
             '        pass\n',
             id='sequence without braces',
         ),
+        pytest.param(
+            'match x:\n'
+            '    case a():\n'
+            '        pass\n',
+            id='class without args',
+        ),
     ),
 )
 def test_noop(s):
