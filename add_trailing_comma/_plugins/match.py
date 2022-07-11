@@ -64,14 +64,14 @@ if sys.version_info >= (3, 10):  # pragma: >=3.10 cover
     @register(ast.MatchMapping)
     def visit_MatchMapping(
             state: State,
-            node: ast.MatchClass,
+            node: ast.MatchMapping,
     ) -> Iterable[tuple[Offset, TokenFunc]]:
         yield ast_to_offset(node), _fix_mapping
 
     @register(ast.MatchSequence)
     def visit_MatchSequence(
             state: State,
-            node: ast.MatchClass,
+            node: ast.MatchSequence,
     ) -> Iterable[tuple[Offset, TokenFunc]]:
         func = functools.partial(_fix_sequence, n=len(node.patterns))
         yield ast_to_offset(node), func
