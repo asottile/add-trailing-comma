@@ -10,7 +10,9 @@ literals.
 
 ## Installation
 
-`pip install add-trailing-comma`
+```bash
+pip install add-trailing-comma
+```
 
 ## As a pre-commit hook
 
