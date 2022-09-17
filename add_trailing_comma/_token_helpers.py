@@ -145,7 +145,7 @@ def fix_brace(
             Token('NL', '\n'), Token(UNIMPORTANT_WS, ' ' * new_indent),
         ]
         last_brace += 2
-        # Adust indentation for the rest of the things
+        # Adjust indentation for the rest of the things
         min_indent = None
         indents = []
         insert_indents = []
