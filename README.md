@@ -178,6 +178,17 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
      pass
 ```
 
+### trailing comma for with statement
+
+```diff
+ with (
+         open('f1', 'r') as f1,
+-        open('f2', 'w') as f2
++        open('f2', 'w') as f2,
+ ):
+     pass
+```
+
 ### trailing comma for match statement
 
 ```diff
