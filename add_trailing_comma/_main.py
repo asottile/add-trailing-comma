@@ -96,6 +96,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.min_version < (3, 6):
+        print(
+            'WARNING: add-trailing-comma will only use 3.6+ mod after 3.0',
+            file=sys.stderr,
+        )
+
     ret = 0
     for filename in args.filenames:
         ret |= fix_file(filename, args)
