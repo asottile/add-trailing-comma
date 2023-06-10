@@ -98,7 +98,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.min_version < (3, 6):
         print(
-            'WARNING: add-trailing-comma will only use 3.6+ mod after 3.0',
+            'WARNING: add-trailing-comma will only use 3.6+ mode after 3.0',
             file=sys.stderr,
         )
 
