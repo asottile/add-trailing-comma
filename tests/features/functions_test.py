@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from add_trailing_comma._main import _fix_src
@@ -97,7 +95,6 @@ def test_fixes_defs_py36_plus(src, expected):
     assert _fix_src(src, min_version=(3, 6)) == expected
 
 
-@pytest.mark.xfail(sys.version_info < (3, 8), reason='py38+')
 @pytest.mark.parametrize(
     ('src', 'expected'),
     (
