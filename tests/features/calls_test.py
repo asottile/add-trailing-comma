@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import ast
-
 import pytest
 
 from add_trailing_comma._main import _fix_src
@@ -51,24 +49,6 @@ from add_trailing_comma._main import _fix_src
 def test_fix_calls_noops(src):
     ret = _fix_src(src, min_version=(2, 7))
     assert ret == src
-
-
-def _has_16806_bug():
-    # See https://bugs.python.org/issue16806
-    body = ast.parse('"""\n"""').body[0]
-    assert isinstance(body, ast.Expr)
-    return body.value.col_offset == -1
-
-
-@pytest.mark.xfail(not _has_16806_bug(), reason='multiline string parse bug')
-def test_ignores_invalid_ast_node():
-    src = (
-        'x(\n'
-        '    """\n'
-        '    """\n'
-        ')'
-    )
-    assert _fix_src(src, min_version=(2, 7)) == src
 
 
 def test_multiline_string_with_call():

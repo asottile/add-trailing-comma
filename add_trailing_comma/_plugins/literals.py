@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import functools
-import sys
 from typing import Iterable
 
 from tokenize_rt import NON_CODING_TOKENS
@@ -114,13 +113,9 @@ def visit_Tuple(
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if node.elts:
         is_one_el = len(node.elts) == 1
-        if (
-                ast_to_offset(node) == ast_to_offset(node.elts[0]) or
-                # in < py38 tuples lie about offset -- later we must backtrack
-                sys.version_info < (3, 8)
-        ):
+        if ast_to_offset(node) == ast_to_offset(node.elts[0]):
             func = functools.partial(_fix_tuple, one_el_tuple=is_one_el)
             yield ast_to_offset(node), func
-        else:  # pragma: >=3.8 cover
+        else:
             func = functools.partial(_fix_tuple_py38, one_el_tuple=is_one_el)
             yield ast_to_offset(node), func
