@@ -33,7 +33,7 @@ def visit_FunctionDef(
         state: State,
         node: ast.AsyncFunctionDef | ast.FunctionDef,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    args = [*getattr(node.args, 'posonlyargs', ()), *node.args.args]
+    args = [*node.args.posonlyargs, *node.args.args]
 
     if node.args.vararg:
         args.append(node.args.vararg)
