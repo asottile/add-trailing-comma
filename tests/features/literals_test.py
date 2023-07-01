@@ -26,7 +26,7 @@ from add_trailing_comma._main import _fix_src
     ),
 )
 def test_noop_literals(src):
-    assert _fix_src(src, min_version=(2, 7)) == src
+    assert _fix_src(src) == src
 
 
 @pytest.mark.parametrize(
@@ -121,7 +121,7 @@ def test_noop_literals(src):
     ),
 )
 def test_fixes_literals(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected
 
 
 @pytest.mark.parametrize(
@@ -166,7 +166,7 @@ def test_fixes_literals(src, expected):
     ),
 )
 def test_fixes_py35_plus_literals(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected
 
 
 def test_noop_tuple_literal_without_braces():
@@ -176,4 +176,4 @@ def test_noop_tuple_literal_without_braces():
         '    2, \\\n'
         '    3'
     )
-    assert _fix_src(src, min_version=(2, 7)) == src
+    assert _fix_src(src) == src

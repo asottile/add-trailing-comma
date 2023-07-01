@@ -21,7 +21,7 @@ def test_main_noop(tmpdir):
 def test_main_changes_a_file(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write('x(\n    1\n)\n')
-    assert main((f.strpath, '--py36-plus')) == 1
+    assert main((f.strpath,)) == 1
     _, err = capsys.readouterr()
     assert err == f'Rewriting {f}\n'
     assert f.read() == 'x(\n    1,\n)\n'
@@ -30,7 +30,7 @@ def test_main_changes_a_file(tmpdir, capsys):
 def test_main_preserves_line_endings(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write_binary(b'x(\r\n    1\r\n)\r\n')
-    assert main((f.strpath, '--py36-plus')) == 1
+    assert main((f.strpath,)) == 1
     _, err = capsys.readouterr()
     assert err == f'Rewriting {f}\n'
     assert f.read_binary() == b'x(\r\n    1,\r\n)\r\n'
@@ -45,7 +45,7 @@ def test_main_syntax_error(tmpdir):
 def test_main_non_utf8_bytes(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write_binary('# -*- coding: cp1252 -*-\nx = €\n'.encode('cp1252'))
-    assert main((f.strpath, '--py36-plus')) == 1
+    assert main((f.strpath,)) == 1
     _, err = capsys.readouterr()
     assert err == f'{f} is non-utf-8 (not supported)\n'
 
@@ -53,47 +53,34 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
 def test_main_py27_syntaxerror_coding(tmpdir):
     f = tmpdir.join('f.py')
     f.write('# -*- coding: utf-8 -*-\n[1, 2,]\n')
-    assert main((f.strpath, '--py36-plus')) == 1
+    assert main((f.strpath,)) == 1
     assert f.read() == '# -*- coding: utf-8 -*-\n[1, 2]\n'
 
 
-def test_main_py35_plus_argument_star_args(tmpdir, capsys):
+def test_main_py35_plus_py36_plus_deprecated(tmpdir, capsys):
     f = tmpdir.join('f.py')
     f.write('x(\n    *args\n)\n')
-    assert main((f.strpath,)) == 0
-    assert f.read() == 'x(\n    *args\n)\n'
-    out, err = capsys.readouterr()
-    assert err.startswith('WARNING: add-trailing-comma will only use 3.6+')
     assert main((f.strpath, '--py35-plus')) == 1
     assert f.read() == 'x(\n    *args,\n)\n'
     out, err = capsys.readouterr()
-    assert err.startswith('WARNING: add-trailing-comma will only use 3.6+')
+    assert err.startswith('WARNING: --py35-plus / --py36-plus do nothing')
+    assert main((f.strpath, '--py36-plus')) == 0
+    assert f.read() == 'x(\n    *args,\n)\n'
+    out, err = capsys.readouterr()
+    assert err.startswith('WARNING: --py35-plus / --py36-plus do nothing')
 
 
 def test_main_py35_plus_argument_star_star_kwargs(tmpdir):
     f = tmpdir.join('f.py')
     f.write('x(\n    **args\n)\n')
-    assert main((f.strpath,)) == 0
-    assert f.read() == 'x(\n    **args\n)\n'
-    assert main((f.strpath, '--py35-plus')) == 1
+    assert main((f.strpath,)) == 1
     assert f.read() == 'x(\n    **args,\n)\n'
-
-
-def test_main_py36_plus_implies_py35_plus(tmpdir):
-    f = tmpdir.join('f.py')
-    f.write('x(\n    **kwargs\n)\n')
-    assert main((f.strpath,)) == 0
-    assert f.read() == 'x(\n    **kwargs\n)\n'
-    assert main((f.strpath, '--py36-plus')) == 1
-    assert f.read() == 'x(\n    **kwargs,\n)\n'
 
 
 def test_main_py36_plus_function_trailing_commas(tmpdir):
     f = tmpdir.join('f.py')
     f.write('def f(\n    **kwargs\n): pass\n')
-    assert main((f.strpath,)) == 0
-    assert f.read() == 'def f(\n    **kwargs\n): pass\n'
-    assert main((f.strpath, '--py36-plus')) == 1
+    assert main((f.strpath,)) == 1
     assert f.read() == 'def f(\n    **kwargs,\n): pass\n'
 
 

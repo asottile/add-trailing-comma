@@ -17,7 +17,7 @@ from add_trailing_comma._main import _fix_src
     ),
 )
 def test_fix_from_import_noop(src):
-    assert _fix_src(src, min_version=(2, 7)) == src
+    assert _fix_src(src) == src
 
 
 @pytest.mark.parametrize(
@@ -68,4 +68,4 @@ def test_fix_from_import_noop(src):
     ),
 )
 def test_fix_from_import(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected

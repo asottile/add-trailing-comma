@@ -24,13 +24,13 @@ def _changing_list(lst: list[Token]) -> Iterable[tuple[int, Token]]:
         i += 1
 
 
-def _fix_src(contents_text: str, min_version: tuple[int, ...]) -> str:
+def _fix_src(contents_text: str) -> str:
     try:
         ast_obj = ast_parse(contents_text)
     except SyntaxError:
         return contents_text
 
-    callbacks = visit(FUNCS, ast_obj, min_version)
+    callbacks = visit(FUNCS, ast_obj)
 
     tokens = src_to_tokens(contents_text)
     for i, token in _changing_list(tokens):
@@ -67,7 +67,7 @@ def fix_file(filename: str, args: argparse.Namespace) -> int:
         print(msg, file=sys.stderr)
         return 1
 
-    contents_text = _fix_src(contents_text, args.min_version)
+    contents_text = _fix_src(contents_text)
 
     if filename == '-':
         print(contents_text, end='')
@@ -86,21 +86,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
-    parser.add_argument(
-        '--py35-plus',
-        action='store_const', dest='min_version', const=(3, 5), default=(2, 7),
-    )
-    parser.add_argument(
-        '--py36-plus',
-        action='store_const', dest='min_version', const=(3, 6),
-    )
+    parser.add_argument('--py35-plus', action='store_true')
+    parser.add_argument('--py36-plus', action='store_true')
     args = parser.parse_args(argv)
 
-    if args.min_version < (3, 6):
-        print(
-            'WARNING: add-trailing-comma will only use 3.6+ mode after 3.0',
-            file=sys.stderr,
-        )
+    if args.py35_plus or args.py36_plus:
+        print('WARNING: --py35-plus / --py36-plus do nothing', file=sys.stderr)
 
     ret = 0
     for filename in args.filenames:
