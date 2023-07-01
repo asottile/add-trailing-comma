@@ -16,13 +16,6 @@ from add_trailing_comma._main import _fix_src
         'tuple(\n'
         '    a for a in b\n'
         ')',
-        # Don't rewrite *args or **kwargs unless --py35-plus
-        'x(\n'
-        '    *args\n'
-        ')',
-        'x(\n'
-        '    **kwargs\n'
-        ')',
         # The ast tells us that the inner call starts on line 2, but the first
         # paren (and last paren) are actually both on line 3.
         'x(\n'
@@ -47,7 +40,7 @@ from add_trailing_comma._main import _fix_src
     ),
 )
 def test_fix_calls_noops(src):
-    ret = _fix_src(src, min_version=(2, 7))
+    ret = _fix_src(src)
     assert ret == src
 
 
@@ -57,7 +50,7 @@ def test_multiline_string_with_call():
         '   y\n'
         '    """.format(x, y)\n'
     )
-    assert _fix_src(src, min_version=(2, 7)) == src
+    assert _fix_src(src) == src
 
 
 def test_py35_plus_rewrite():
@@ -66,7 +59,7 @@ def test_py35_plus_rewrite():
         '    *args\n'
         ')'
     )
-    ret = _fix_src(src, min_version=(3, 5))
+    ret = _fix_src(src)
     assert ret == (
         'x(\n'
         '    *args,\n'
@@ -117,4 +110,4 @@ def test_py35_plus_rewrite():
     ),
 )
 def test_fixes_calls(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected

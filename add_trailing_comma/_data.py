@@ -21,11 +21,8 @@ if TYPE_CHECKING:
 else:
     Protocol = object
 
-Version = Tuple[int, ...]
-
 
 class State(NamedTuple):
-    min_version: Version
     in_fstring: bool = False
 
 
@@ -50,9 +47,8 @@ class ASTCallbackMapping(Protocol):
 def visit(
         funcs: ASTCallbackMapping,
         tree: ast.AST,
-        version: Version,
 ) -> dict[Offset, list[TokenFunc]]:
-    nodes = [(tree, State(min_version=version))]
+    nodes = [(tree, State())]
 
     ret = collections.defaultdict(list)
     while nodes:

@@ -14,22 +14,10 @@ from add_trailing_comma._main import _fix_src
         '        arg1,\n'
         '        arg2,\n'
         '): pass',
-        # *args forbid trailing commas
-        'def f(\n'
-        '        *args\n'
-        '): pass',
-        # **kwargs forbid trailing commas
-        'def f(\n'
-        '        **kwargs\n'
-        '): pass',
-        # keyword-only args forbid trailing commas (or are py2 syntax error)
-        'def f(\n'
-        '        *, arg=1\n'
-        '): pass',
     ),
 )
 def test_noop_function_defs(src):
-    assert _fix_src(src, min_version=(2, 7)) == src
+    assert _fix_src(src) == src
 
 
 @pytest.mark.parametrize(
@@ -56,7 +44,7 @@ def test_noop_function_defs(src):
     ),
 )
 def test_fixes_defs(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected
 
 
 @pytest.mark.parametrize(
@@ -92,7 +80,7 @@ def test_fixes_defs(src, expected):
     ),
 )
 def test_fixes_defs_py36_plus(src, expected):
-    assert _fix_src(src, min_version=(3, 6)) == expected
+    assert _fix_src(src) == expected
 
 
 @pytest.mark.parametrize(
@@ -110,4 +98,4 @@ def test_fixes_defs_py36_plus(src, expected):
     ),
 )
 def test_fix_posonlyargs(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected

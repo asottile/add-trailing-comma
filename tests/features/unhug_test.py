@@ -26,7 +26,7 @@ from add_trailing_comma._main import _fix_src
     ),
 )
 def test_noop_unhugs(src):
-    assert _fix_src(src, min_version=(2, 7)) == src
+    assert _fix_src(src) == src
 
 
 @pytest.mark.parametrize(
@@ -74,7 +74,7 @@ def test_noop_unhugs(src):
             '    *args): pass',
 
             'def f(\n'
-            '    *args\n'
+            '    *args,\n'
             '): pass',
         ),
         (
@@ -82,7 +82,7 @@ def test_noop_unhugs(src):
             '    **kwargs): pass',
 
             'def f(\n'
-            '    **kwargs\n'
+            '    **kwargs,\n'
             '): pass',
         ),
         # if there's already a trailing comma, don't add a new one
@@ -155,7 +155,7 @@ def test_noop_unhugs(src):
             '    *args)',
 
             'f(\n'
-            '    *args\n'
+            '    *args,\n'
             ')',
         ),
         (
@@ -274,25 +274,15 @@ def test_noop_unhugs(src):
 
             id='#42: listcomp unhug ends in brace',
         ),
-    ),
-)
-def test_fix_unhugs(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
-
-
-@pytest.mark.parametrize(
-    ('src', 'expected'),
-    (
-        # python 2 doesn't kwonlyargs
         (
             'def f(\n'
             '    *, kw=1, kw2=2): pass',
 
             'def f(\n'
-            '    *, kw=1, kw2=2\n'
+            '    *, kw=1, kw2=2,\n'
             '): pass',
         ),
     ),
 )
-def test_fix_unhugs_py3_only(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+def test_fix_unhugs(src, expected):
+    assert _fix_src(src) == expected

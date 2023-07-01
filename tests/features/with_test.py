@@ -42,7 +42,7 @@ from add_trailing_comma._main import _fix_src
     ),
 )
 def test_noop(src):
-    assert _fix_src(src, min_version=(2, 7)) == src
+    assert _fix_src(src) == src
 
 
 @pytest.mark.xfail(sys.version_info < (3, 9), reason='py39+')
@@ -103,4 +103,4 @@ def test_noop(src):
     ),
 )
 def test_py39_multiwith(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected

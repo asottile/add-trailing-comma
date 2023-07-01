@@ -33,7 +33,7 @@ from add_trailing_comma._main import _fix_src
     ),
 )
 def test_noop_trailing_brace(src):
-    assert _fix_src(src, min_version=(2, 7)) == src
+    assert _fix_src(src) == src
 
 
 @pytest.mark.parametrize(
@@ -75,4 +75,4 @@ def test_noop_trailing_brace(src):
     ),
 )
 def test_fix_trailing_brace(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected

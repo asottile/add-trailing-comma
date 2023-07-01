@@ -17,7 +17,7 @@ from add_trailing_comma._main import _fix_src
     ),
 )
 def test_fix_classes_noop(src):
-    assert _fix_src(src, min_version=(2, 7)) == src
+    assert _fix_src(src) == src
 
 
 @pytest.mark.parametrize(
@@ -34,7 +34,7 @@ def test_fix_classes_noop(src):
     ),
 )
 def test_fix_classes(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected
 
 
 @pytest.mark.parametrize(
@@ -71,4 +71,4 @@ def test_fix_classes(src, expected):
     ),
 )
 def test_fix_classes_py3_only_syntax(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected

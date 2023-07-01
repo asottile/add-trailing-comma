@@ -21,4 +21,4 @@ from add_trailing_comma._main import _fix_src
     ),
 )
 def test_remove_extra_comma(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected

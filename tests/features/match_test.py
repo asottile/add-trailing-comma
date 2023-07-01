@@ -25,7 +25,7 @@ from add_trailing_comma._main import _fix_src
     ),
 )
 def test_noop(s):
-    assert _fix_src(s, min_version=(2, 7)) == s
+    assert _fix_src(s) == s
 
 
 @pytest.mark.xfail(sys.version_info < (3, 10), reason='py310+')
@@ -122,4 +122,4 @@ def test_noop(s):
     ),
 )
 def test_fix(src, expected):
-    assert _fix_src(src, min_version=(2, 7)) == expected
+    assert _fix_src(src) == expected
