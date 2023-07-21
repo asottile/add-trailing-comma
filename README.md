@@ -85,24 +85,6 @@ This has the following benefits:
  )
 ```
 
-### trailing commas for function calls with unpackings
-
-If `--py35-plus` is passed, `add-trailing-comma` will also perform the
-following change:
-
-```diff
- x(
--    *args
-+    *args,
- )
- y(
--    **kwargs
-+    **kwargs,
- )
-```
-
-Note that this would cause a **`SyntaxError`** in earlier python versions.
-
 ### trailing commas for tuple / list / dict / set literals
 
 ```diff
@@ -129,32 +111,6 @@ Note that this would cause a **`SyntaxError`** in earlier python versions.
 +        arg2,
  ):
 ```
-
-### trailing commas for function definitions with unpacking arguments
-
-If `--py36-plus` is passed, `add-trailing-comma` will also perform the
-following change:
-
-```diff
- def f(
--    *args
-+    *args,
- ): pass
-
-
- def g(
--    **kwargs
-+    **kwargs,
- ): pass
-
-
- def h(
--    *, kw=1
-+    *, kw=1,
- ): pass
-```
-
-Note that this would cause a **`SyntaxError`** in earlier python versions.
 
 ### trailing commas for `from` imports
 
