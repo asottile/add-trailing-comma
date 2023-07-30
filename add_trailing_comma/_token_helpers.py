@@ -27,9 +27,9 @@ def find_simple(first_brace: int, tokens: list[Token]) -> Fix | None:
 
     for i in range(first_brace + 1, len(tokens)):
         token = tokens[i]
-        if token.src in START_BRACES:
+        if token.name == 'OP' and token.src in START_BRACES:
             brace_stack.append(i)
-        elif token.src in END_BRACES:
+        elif token.name == 'OP' and token.src in END_BRACES:
             brace_stack.pop()
 
         if len(brace_stack) == 1 and token.src == ',':
@@ -94,11 +94,11 @@ def find_call(
     paren_stack = []
     for i in range(i, len(tokens)):
         token = tokens[i]
-        if token.src == '(':
+        if token.name == 'OP' and token.src == '(':
             paren_stack.append(i)
         # the ast lies to us about the beginning of parenthesized functions.
         # See #3. (why we make sure there's something to pop here)
-        elif token.src == ')' and paren_stack:
+        elif token.name == 'OP' and token.src == ')' and paren_stack:
             paren_stack.pop()
 
         if (token.line, token.utf8_byte_offset) in arg_offsets:
@@ -132,6 +132,10 @@ def fix_brace(
             # Don't unhug when containing a single token (such as a triple
             # quoted string).
             first_brace + 2 == last_brace or
+            (
+                tokens[first_brace + 1].name == 'FSTRING_START' and
+                tokens[last_brace - 1].name == 'FSTRING_END'
+            ) or
             # don't unhug if it is a single line
             fix_data.remove_comma
     ):

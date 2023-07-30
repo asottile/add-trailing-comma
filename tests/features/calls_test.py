@@ -37,6 +37,30 @@ from add_trailing_comma._main import _fix_src
 
             id='regression test for #106',
         ),
+        pytest.param(
+            'raise ValueError(\n'
+            "    f'a{x})',\n"
+            ')\n',
+            id='3.12 fstring handling end brace',
+        ),
+        pytest.param(
+            'raise ValueError(\n'
+            "    f'({x}',\n"
+            ')\n',
+            id='3.12 fstring handling start brace',
+        ),
+        pytest.param(
+            "f'hello {{world}} {x}('.format(\n"
+            '    world=1,\n'
+            ')\n',
+            id='3.12 fstring is part of function open brace',
+        ),
+        pytest.param(
+            "f'hello {{world}} {x}))'.format(\n"
+            '    world=1,\n'
+            ')\n',
+            id='3.12 fstring is part of function close brace',
+        ),
     ),
 )
 def test_fix_calls_noops(src):
