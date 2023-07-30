@@ -23,6 +23,10 @@ from add_trailing_comma._main import _fix_src
         'textwrap.dedent("""\n'
         '    hi\n'
         '""")',
+        # single triple-quoted fstring argument, don't unhug
+        'textwrap.dedent(f"""\n'
+        '    hi\n'
+        '""")',
     ),
 )
 def test_noop_unhugs(src):

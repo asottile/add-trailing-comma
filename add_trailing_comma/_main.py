@@ -43,7 +43,7 @@ def _fix_src(contents_text: str) -> str:
         for callback in callbacks.get(token.offset, ()):
             callback(i, tokens)
 
-        if token.src in START_BRACES:
+        if token.name == 'OP' and token.src in START_BRACES:
             fix_brace(
                 tokens, find_simple(i, tokens),
                 add_comma=False,
