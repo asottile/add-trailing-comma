@@ -174,6 +174,33 @@ This has the following benefits:
         pass
 ```
 
+
+### trailling comma for PEP-695 type aliases
+
+```diff
+ def f[
+-    T
++    T,
+ ](x: T) -> T:
+     return x
+```
+
+```diff
+ class A[
+-    K
++    K,
+ ]:
+     def __init__(self, x: T) -> None:
+         self.x = x
+```
+
+```diff
+ type ListOrSet[
+-     T
++     T,
+] = list[T] | set[T]
+```
+
 ### unhug trailing paren
 
 ```diff
