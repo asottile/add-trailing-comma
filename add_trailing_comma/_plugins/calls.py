@@ -34,7 +34,7 @@ def visit_Call(
         state: State,
         node: ast.Call,
 ) -> Iterable[tuple[Offset, TokenFunc]]:
-    argnodes = [*node.args, *node.keywords]
+    argnodes: list[ast.expr | ast.keyword] = [*node.args, *node.keywords]
     arg_offsets = set()
     for argnode in argnodes:
         offset = ast_to_offset(argnode)
