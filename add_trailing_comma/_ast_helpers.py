@@ -13,13 +13,4 @@ def ast_parse(contents_text: str) -> ast.Module:
 
 
 def ast_to_offset(node: ast.AST) -> Offset:
-    candidates = [node]
-    while candidates:
-        candidate = candidates.pop()
-        if hasattr(candidate, 'lineno'):
-            return Offset(candidate.lineno, candidate.col_offset)
-        elif hasattr(candidate, '_fields'):  # pragma: <3.9 cover
-            for field in reversed(candidate._fields):
-                candidates.append(getattr(candidate, field))
-    else:
-        raise AssertionError(node)
+    return Offset(node.lineno, node.col_offset)
