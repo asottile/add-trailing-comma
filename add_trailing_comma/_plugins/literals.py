@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 import functools
-from typing import Iterable
+from collections.abc import Iterable
 
 from tokenize_rt import NON_CODING_TOKENS
 from tokenize_rt import Offset
@@ -91,7 +91,7 @@ def _fix_tuple_py38(
         tokens: list[Token],
         *,
         one_el_tuple: bool,
-) -> None:  # pragma: >=3.8 cover
+) -> None:
     fix = find_simple(i, tokens)
 
     # for tuples we *must* find a comma, otherwise it is not a tuple
