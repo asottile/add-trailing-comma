@@ -136,6 +136,10 @@ def fix_brace(
                 tokens[first_brace + 1].name == 'FSTRING_START' and
                 tokens[last_brace - 1].name == 'FSTRING_END'
             ) or
+            (
+                tokens[first_brace + 1].name == 'TSTRING_START' and
+                tokens[last_brace - 1].name == 'TSTRING_END'
+            ) or
             # don't unhug if it is a single line
             fix_data.remove_comma
     ):
