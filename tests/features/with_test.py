@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from add_trailing_comma._main import _fix_src
@@ -45,7 +43,6 @@ def test_noop(src):
     assert _fix_src(src) == src
 
 
-@pytest.mark.xfail(sys.version_info < (3, 9), reason='py39+')
 @pytest.mark.parametrize(
     ('src', 'expected'),
     (
