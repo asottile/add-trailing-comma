@@ -57,19 +57,6 @@ def test_main_py27_syntaxerror_coding(tmpdir):
     assert f.read() == '# -*- coding: utf-8 -*-\n[1, 2]\n'
 
 
-def test_main_py35_plus_py36_plus_deprecated(tmpdir, capsys):
-    f = tmpdir.join('f.py')
-    f.write('x(\n    *args\n)\n')
-    assert main((f.strpath, '--py35-plus')) == 1
-    assert f.read() == 'x(\n    *args,\n)\n'
-    out, err = capsys.readouterr()
-    assert err.startswith('WARNING: --py35-plus / --py36-plus do nothing')
-    assert main((f.strpath, '--py36-plus')) == 0
-    assert f.read() == 'x(\n    *args,\n)\n'
-    out, err = capsys.readouterr()
-    assert err.startswith('WARNING: --py35-plus / --py36-plus do nothing')
-
-
 def test_main_py35_plus_argument_star_star_kwargs(tmpdir):
     f = tmpdir.join('f.py')
     f.write('x(\n    **args\n)\n')

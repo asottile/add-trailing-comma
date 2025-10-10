@@ -86,12 +86,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*')
     parser.add_argument('--exit-zero-even-if-changed', action='store_true')
-    parser.add_argument('--py35-plus', action='store_true')
-    parser.add_argument('--py36-plus', action='store_true')
     args = parser.parse_args(argv)
-
-    if args.py35_plus or args.py36_plus:
-        print('WARNING: --py35-plus / --py36-plus do nothing', file=sys.stderr)
 
     ret = 0
     for filename in args.filenames:
