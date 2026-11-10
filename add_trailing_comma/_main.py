@@ -57,8 +57,12 @@ def fix_file(filename: str, args: argparse.Namespace) -> int:
     if filename == '-':
         contents_bytes = sys.stdin.buffer.read()
     else:
-        with open(filename, 'rb') as fb:
-            contents_bytes = fb.read()
+        try:
+            with open(filename, 'rb') as fb:
+                contents_bytes = fb.read()
+        except OSError as e:
+            print(f'{filename}: {e.strerror or e}', file=sys.stderr)
+            return 1
 
     try:
         contents_text_orig = contents_text = contents_bytes.decode()

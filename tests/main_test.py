@@ -50,6 +50,17 @@ def test_main_non_utf8_bytes(tmpdir, capsys):
     assert err == f'{f} is non-utf-8 (not supported)\n'
 
 
+def test_main_missing_file_reports_and_continues(tmpdir, capsys):
+    f = tmpdir.join('f.py')
+    f.write('x(\n    1\n)\n')
+    missing = tmpdir.join('missing.py').strpath
+    assert main((missing, f.strpath)) == 1
+    out, err = capsys.readouterr()
+    assert missing in err
+    assert 'Traceback' not in err
+    assert f.read() == 'x(\n    1,\n)\n'
+
+
 def test_main_py27_syntaxerror_coding(tmpdir):
     f = tmpdir.join('f.py')
     f.write('# -*- coding: utf-8 -*-\n[1, 2,]\n')
