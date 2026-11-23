@@ -123,6 +123,9 @@ def fix_brace(
     # Figure out if either of the braces are "hugging"
     hug_open = tokens[first_brace + 1].name not in NON_CODING_TOKENS
     hug_close = tokens[last_brace - 1].name not in NON_CODING_TOKENS
+    # Whitespace before } would become part of the format spec.
+    if tokens[last_brace - 1].name in {'FSTRING_MIDDLE', 'TSTRING_MIDDLE'}:
+        hug_close = False
     if (
             # Don't unhug single element things with a multi-line component
             # inside.

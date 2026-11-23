@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import io
 import sys
+from typing import Any
 from unittest import mock
+
+import pytest
 
 from add_trailing_comma._main import main
 
@@ -34,6 +37,45 @@ def test_main_preserves_line_endings(tmpdir, capsys):
     _, err = capsys.readouterr()
     assert err == f'Rewriting {f}\n'
     assert f.read_binary() == b'x(\r\n    1,\r\n)\r\n'
+
+
+@pytest.mark.parametrize(
+    'prefix',
+    (
+        'f',
+        pytest.param(
+            't',
+            marks=pytest.mark.skipif(
+                sys.version_info < (3, 14), reason='py314+',
+            ),
+        ),
+    ),
+)
+@pytest.mark.parametrize(
+    ('format_spec', 'resolved_spec', 'expected'),
+    (
+        ('', '', '3'),
+        ('04d', '04d', '0003'),
+        ('{4}', '4', '   3'),
+        ('\n>4', '\n>4', '\n\n\n3'),
+    ),
+)
+def test_main_preserves_format_specs(
+        tmpdir, prefix, format_spec, resolved_spec, expected,
+):
+    f = tmpdir.join('f.py')
+    src = 'result = ' + prefix + '"""{\n    3:' + format_spec + '}"""\n'
+    f.write(src)
+    assert main((f.strpath,)) == 0
+    assert f.read() == src
+    namespace: dict[str, Any] = {}
+    exec(f.read(), namespace)
+    result = namespace['result']
+    if prefix == 't':  # pragma: >=3.14 cover
+        interpolation, = result.interpolations
+        assert interpolation.format_spec == resolved_spec
+        result = format(interpolation.value, interpolation.format_spec)
+    assert result == expected
 
 
 def test_main_syntax_error(tmpdir):
